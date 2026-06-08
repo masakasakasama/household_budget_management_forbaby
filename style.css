@@ -41,7 +41,7 @@ body {
 /* ---------- ヘッダー ---------- */
 .app-header { text-align: center; padding: 14px 0 6px; }
 
-.family-strip {
+.mascot-strip {
   font-size: 30px;
   letter-spacing: 8px;
   margin-bottom: 4px;
@@ -103,6 +103,113 @@ body {
   cursor: pointer;
   border: none;
 }
+
+/* ---------- おうち同期バー ---------- */
+.sync-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 12px;
+}
+.sync-status {
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  color: var(--ink);
+}
+.sync-status.ok { color: var(--mint-deep); }
+.sync-status.syncing { color: var(--sky-deep); }
+.sync-status.err { color: #e5556e; }
+.sync-actions { display: flex; gap: 6px; }
+.sync-btn {
+  border: none;
+  background: #fff;
+  color: var(--ink);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform .12s, background .12s;
+}
+.sync-btn:hover { transform: translateY(-1px); background: var(--cream); }
+.sync-btn-main { background: var(--pink); color: #fff; }
+.sync-btn-main:hover { background: var(--pink-deep); }
+.sync-btn:disabled { opacity: .5; cursor: default; transform: none; }
+.sync-time { font-size: 11px; color: var(--ink-soft); width: 100%; text-align: center; }
+
+/* ---------- 共有モーダル ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(107, 91, 83, 0.4);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 50;
+}
+.modal-overlay[hidden] { display: none; }
+.modal {
+  background: var(--cream);
+  border-radius: 26px;
+  padding: 26px 22px 22px;
+  max-width: 420px;
+  width: 100%;
+  position: relative;
+  box-shadow: 0 18px 50px rgba(255, 140, 160, 0.35);
+  text-align: center;
+}
+.modal-close {
+  position: absolute;
+  top: 12px; right: 14px;
+  border: none;
+  background: #fff;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  box-shadow: var(--shadow);
+}
+.modal-emoji { font-size: 38px; }
+.modal-title { margin: 6px 0 8px; color: var(--pink-deep); font-size: 19px; font-weight: 800; }
+.modal-text { font-size: 13px; color: var(--ink); line-height: 1.7; margin: 0 0 16px; }
+.modal-label { display: block; text-align: left; font-size: 12px; font-weight: 700; color: var(--ink-soft); margin: 12px 2px 5px; }
+.copy-row { display: flex; gap: 6px; }
+.copy-input {
+  flex: 1;
+  min-width: 0;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  padding: 9px 11px;
+}
+.copy-btn {
+  border: none;
+  background: var(--mint-deep);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 0 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.copy-btn:hover { filter: brightness(1.05); }
+.modal-note { font-size: 12px; color: var(--ink-soft); margin: 14px 0 0; min-height: 16px; }
 
 /* ---------- ハイライト ---------- */
 .highlight-row {
@@ -212,6 +319,22 @@ body {
   flex-shrink: 0;
 }
 .del-btn:hover { background: var(--pink); color: #fff; }
+
+/* 並べ替えボタン */
+.reorder { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+.move-btn {
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 9px;
+  line-height: 1;
+  padding: 2px 3px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+.move-btn:hover { background: var(--sky); color: var(--ink); }
+.reorder-cell { width: 22px; background: var(--cream); border-radius: 10px 0 0 10px; }
+.reorder-v { align-items: center; }
 
 .add-line {
   margin-top: 10px;
