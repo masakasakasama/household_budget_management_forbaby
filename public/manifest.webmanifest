@@ -1,0 +1,18 @@
+{
+  "name": "Baby Budget",
+  "short_name": "Baby Budget",
+  "description": "出産と育児を見据えた家計管理アプリ",
+  "start_url": "/household_budget_management_forbaby/",
+  "display": "standalone",
+  "background_color": "#f6f7fb",
+  "theme_color": "#0f172a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
