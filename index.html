@@ -1,20 +1,222 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0f172a" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Baby Budget" />
-    <meta name="description" content="出産と育児を見据えた家計管理アプリ" />
-    <link rel="manifest" href="/household_budget_management_forbaby/manifest.webmanifest" />
-    <link rel="icon" href="/household_budget_management_forbaby/icon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/household_budget_management_forbaby/icon.svg" />
-    <title>Baby Budget</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>おうちの家計簿 🐻💕</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <div class="mascot-strip" aria-hidden="true">🐻 🐰 🐥 🐱 🐶</div>
+      <h1 class="app-title">おうちの家計簿</h1>
+      <p class="app-subtitle">おかいものも ちょきんも、にこにこ管理 ✨</p>
+
+      <div class="month-bar">
+        <button class="month-nav" id="prevMonth" aria-label="前の月">‹</button>
+        <div class="month-display">
+          <input type="month" id="monthPicker" class="month-picker" />
+          <span class="month-cloud" id="monthLabel">2026年6月</span>
+        </div>
+        <button class="month-nav" id="nextMonth" aria-label="次の月">›</button>
+      </div>
+
+      <!-- おうち同期バー（複数デバイス同期） -->
+      <div class="sync-bar">
+        <span class="sync-status" id="syncStatus" title="同期の状態">📴 おうちコード未設定</span>
+        <div class="sync-actions">
+          <button class="sync-btn" id="refreshBtn" title="今すぐ最新に更新">🔄 更新</button>
+          <button class="sync-btn sync-btn-main" id="shareBtn" title="別の端末と同期するリンクを作る">🔗 端末を同期</button>
+          <button class="sync-btn" id="joinBtn" title="おうちコードを入力して参加">🏠 参加</button>
+        </div>
+        <span class="sync-time" id="syncTime"></span>
+      </div>
+    </header>
+
+    <!-- ハイライト（残高など） -->
+    <section class="highlight-row">
+      <div class="hl-card hl-income">
+        <span class="hl-emoji">🐷</span>
+        <span class="hl-label">収入合計</span>
+        <span class="hl-value" id="hlIncome">¥0</span>
+      </div>
+      <div class="hl-card hl-expense">
+        <span class="hl-emoji">🛒</span>
+        <span class="hl-label">支出合計</span>
+        <span class="hl-value" id="hlExpense">¥0</span>
+      </div>
+      <div class="hl-card hl-balance">
+        <span class="hl-emoji">💰</span>
+        <span class="hl-label">今月の残高</span>
+        <span class="hl-value" id="hlBalance">¥0</span>
+        <span class="hl-note">来月へのくりこし</span>
+      </div>
+    </section>
+
+    <div class="columns">
+      <!-- 左カラム -->
+      <div class="col">
+        <!-- 収入 -->
+        <section class="card card-income">
+          <div class="card-head">
+            <span class="card-emoji">🌸</span>
+            <h2>収入</h2>
+          </div>
+          <div class="line-list" id="incomeList"></div>
+          <button class="add-line" data-target="income">＋ 収入をふやす</button>
+          <div class="subtotal">
+            <span>収入合計 ①</span>
+            <span id="incomeTotal">¥0</span>
+          </div>
+        </section>
+
+        <!-- 固定費 -->
+        <section class="card card-fixed">
+          <div class="card-head">
+            <span class="card-emoji">🏠</span>
+            <h2>固定費・支出</h2>
+          </div>
+          <div class="line-list" id="fixedList"></div>
+          <button class="add-line" data-target="fixed">＋ 固定費をふやす</button>
+          <div class="subtotal">
+            <span>支出合計 ②</span>
+            <span id="fixedTotal">¥0</span>
+          </div>
+        </section>
+
+        <!-- 生活費 -->
+        <section class="card card-living">
+          <div class="card-head">
+            <span class="card-emoji">🍓</span>
+            <h2>生活費</h2>
+          </div>
+          <div class="line-list" id="livingList"></div>
+          <button class="add-line" data-target="living">＋ 生活費をふやす</button>
+          <div class="subtotal">
+            <span>生活費合計 ③</span>
+            <span id="livingTotal">¥0</span>
+          </div>
+        </section>
+
+        <!-- メモ -->
+        <section class="card card-memo">
+          <div class="card-head">
+            <span class="card-emoji">📝</span>
+            <h2>memo</h2>
+          </div>
+          <textarea id="memo" class="memo-area" placeholder="今月のひとことメモ…  例）来月は旅行の積立をはじめる！"></textarea>
+        </section>
+      </div>
+
+      <!-- 右カラム -->
+      <div class="col">
+        <!-- クレジットカード -->
+        <section class="card card-credit">
+          <div class="card-head">
+            <span class="card-emoji">💳</span>
+            <h2>今月のクレジットカード利用控え</h2>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" id="creditTable">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>月/日</th>
+                  <th>品名</th>
+                  <th>購入先</th>
+                  <th class="num">金額</th>
+                  <th>カード名</th>
+                  <th class="check">済</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="creditBody"></tbody>
+            </table>
+          </div>
+          <button class="add-line" data-target="credit">＋ カード利用をふやす</button>
+          <div class="subtotal">
+            <span>カード利用合計</span>
+            <span id="creditTotal">¥0</span>
+          </div>
+        </section>
+
+        <!-- 特別支出 -->
+        <section class="card card-special">
+          <div class="card-head">
+            <span class="card-emoji">🎁</span>
+            <h2>今月の特別支出</h2>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" id="specialTable">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>月/日</th>
+                  <th>内容</th>
+                  <th class="num">金額</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="specialBody"></tbody>
+            </table>
+          </div>
+          <button class="add-line" data-target="special">＋ 特別支出をふやす</button>
+          <div class="subtotal">
+            <span>特別支出合計</span>
+            <span id="specialTotal">¥0</span>
+          </div>
+        </section>
+
+        <!-- 貯金ぶたメーター -->
+        <section class="card card-piggy">
+          <div class="card-head">
+            <span class="card-emoji">🐽</span>
+            <h2>今月の貯金ぶた</h2>
+          </div>
+          <p class="piggy-msg" id="piggyMsg">数字を入力すると、ぶたさんがコメントするよ！</p>
+          <div class="piggy-meter">
+            <div class="piggy-fill" id="piggyFill"></div>
+          </div>
+          <p class="piggy-rate" id="piggyRate"></p>
+        </section>
+      </div>
+    </div>
+
+    <footer class="app-footer">
+      <button class="footer-btn" id="resetMonth">🧹 今月をリセット</button>
+      <span class="save-hint" id="saveHint">じどうで保存されるよ 💾</span>
+    </footer>
+  </div>
+
+  <!-- 共有モーダル -->
+  <div class="modal-overlay" id="shareModal" hidden>
+    <div class="modal">
+      <button class="modal-close" id="shareClose" aria-label="閉じる">×</button>
+      <div class="modal-emoji">🔗💕</div>
+      <h3 class="modal-title">べつの端末と同期しよう</h3>
+      <p class="modal-text">下のリンクを開けば、<b>同じ家計簿を別の端末でも</b>使えます。スマホ・PC・タブレットどれでも、開くたびに自動で同期されます。</p>
+
+      <label class="modal-label">🔗 共有リンク</label>
+      <div class="copy-row">
+        <input type="text" id="shareLink" class="copy-input" readonly />
+        <button class="copy-btn" id="copyLink">コピー</button>
+      </div>
+
+      <label class="modal-label">🏠 おうちコード（リンクが使えない時はこれを入力）</label>
+      <div class="copy-row">
+        <input type="text" id="shareCode" class="copy-input" readonly />
+        <button class="copy-btn" id="copyCode">コピー</button>
+      </div>
+
+      <p class="modal-note" id="shareNote"></p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
 </html>
