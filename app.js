@@ -4,7 +4,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "1.1.2";
+  const APP_VERSION = "1.1.3";
   const KEY_DATA = "ouchi-kakeibo-data";
   const KEY_CODE = "ouchi-kakeibo-code";
   const KEY_SYNC = "ouchi-kakeibo-lastsync";
