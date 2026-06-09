@@ -18,6 +18,8 @@
 
 * { box-sizing: border-box; }
 
+html, body { max-width: 100%; overflow-x: hidden; }
+
 body {
   margin: 0;
   font-family: "M PLUS Rounded 1c", "Kosugi Maru", sans-serif;
@@ -242,7 +244,9 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
-.col { display: flex; flex-direction: column; gap: 16px; }
+/* グリッド/フレックスの子が内容で広がって画面をはみ出すのを防ぐ */
+.columns > * { min-width: 0; }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
 /* ---------- カード ---------- */
 .card {
@@ -251,6 +255,8 @@ body {
   padding: 16px;
   box-shadow: var(--shadow);
   position: relative;
+  min-width: 0;
+  max-width: 100%;
 }
 .card::before {
   content: "";
@@ -382,7 +388,7 @@ body {
 .memo-area:focus { outline: none; border-color: var(--yellow); }
 
 /* ---------- テーブル ---------- */
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; max-width: 100%; }
 .data-table {
   width: 100%;
   border-collapse: separate;
