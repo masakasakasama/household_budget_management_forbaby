@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=1.1.3" />
+  <link rel="stylesheet" href="style.css?v=1.2.0" />
 </head>
 <body>
   <div class="app">
@@ -36,13 +36,11 @@
         <button class="month-nav" id="nextMonth" aria-label="次の月">›</button>
       </div>
 
-      <!-- おうち同期バー（複数デバイス同期） -->
+      <!-- 同期バー（同じリンクで全端末・常時同期） -->
       <div class="sync-bar">
-        <span class="sync-status" id="syncStatus" title="同期の状態">📴 おうちコード未設定</span>
+        <span class="sync-status" id="syncStatus" title="同期の状態">🔄 同期</span>
         <div class="sync-actions">
-          <button class="sync-btn" id="refreshBtn" title="今すぐ最新に更新">🔄 更新</button>
-          <button class="sync-btn sync-btn-main" id="shareBtn" title="別の端末と同期するリンクを作る">🔗 端末を同期</button>
-          <button class="sync-btn" id="joinBtn" title="おうちコードを入力して参加">🏠 参加</button>
+          <button class="sync-btn sync-btn-main" id="refreshBtn" title="今すぐ最新に更新">🔄 今すぐ更新</button>
         </div>
         <span class="sync-time" id="syncTime"></span>
       </div>
@@ -203,30 +201,7 @@
     </footer>
   </div>
 
-  <!-- 共有モーダル -->
-  <div class="modal-overlay" id="shareModal" hidden>
-    <div class="modal">
-      <button class="modal-close" id="shareClose" aria-label="閉じる">×</button>
-      <div class="modal-emoji">🔗💕</div>
-      <h3 class="modal-title">べつの端末と同期しよう</h3>
-      <p class="modal-text">下のリンクを開けば、<b>同じ家計簿を別の端末でも</b>使えます。スマホ・PC・タブレットどれでも、開くたびに自動で同期されます。</p>
-
-      <label class="modal-label">🔗 共有リンク</label>
-      <div class="copy-row">
-        <input type="text" id="shareLink" class="copy-input" readonly />
-        <button class="copy-btn" id="copyLink">コピー</button>
-      </div>
-
-      <label class="modal-label">🏠 おうちコード（リンクが使えない時はこれを入力）</label>
-      <div class="copy-row">
-        <input type="text" id="shareCode" class="copy-input" readonly />
-        <button class="copy-btn" id="copyCode">コピー</button>
-      </div>
-
-      <p class="modal-note" id="shareNote"></p>
-    </div>
-  </div>
-
-  <script src="app.js?v=1.1.3"></script>
+  <script src="sync-config.js?v=1.2.0"></script>
+  <script src="app.js?v=1.2.0"></script>
 </body>
 </html>

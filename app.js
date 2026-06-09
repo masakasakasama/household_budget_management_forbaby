@@ -1,18 +1,22 @@
 /* おうちの家計簿 — かわいい家計簿アプリ
-   依存ゼロ / localStorageキャッシュ / 複数デバイス同期（jsonblob, 認証・APIキー不要） */
+   依存ゼロ / localStorageキャッシュ / 同じリンクで全端末・常時同期
+   （同期先: Firebase Realtime Database。URLは sync-config.js に設定） */
 
 (() => {
   "use strict";
 
-  const APP_VERSION = "1.1.3";
+  const APP_VERSION = "1.2.0";
   const KEY_DATA = "ouchi-kakeibo-data";
-  const KEY_CODE = "ouchi-kakeibo-code";
   const KEY_SYNC = "ouchi-kakeibo-lastsync";
   const LEGACY_KEY = "ouchi-kakeibo-v1";
-  const BLOB_BASE = "https://jsonblob.com/api/jsonBlob";
-  const POLL_MS = 15000;
+  const POLL_MS = 12000;
 
-  // 各セクションのデフォルト項目（紙の家計簿をベースに）
+  // 同期先（sync-config.js の window.OUCHI_SYNC_URL）。空なら同期なし。
+  const SYNC_URL = String(window.OUCHI_SYNC_URL || "").replace(/\/+$/, "");
+  const SYNC_PATH = "kakeibo"; // 全端末で共有する固定の保存先
+  const remoteUrl = () => `${SYNC_URL}/${SYNC_PATH}.json`;
+  const syncEnabled = () => SYNC_URL.length > 0;
+
   const DEFAULTS = {
     income: [
       { name: "くりこし", amount: "" },
@@ -40,11 +44,11 @@
   // ---------- 状態 ----------
   let state = loadLocal();
   let currentMonth = todayMonth();
-  let ouchiCode = localStorage.getItem(KEY_CODE) || "";
   let lastSyncAt = Number(localStorage.getItem(KEY_SYNC)) || 0;
   let pushTimer = null;
   let pulling = false;
   let pushing = false;
+  let pendingPush = false;
 
   // ---------- ユーティリティ ----------
   function todayMonth() {
@@ -64,12 +68,10 @@
   }
 
   function loadLocal() {
-    // 新フォーマット
     try {
       const raw = JSON.parse(localStorage.getItem(KEY_DATA));
       if (raw && raw.months) return raw;
     } catch {}
-    // 旧フォーマットからの移行（{ "YYYY-MM": {...} }）
     try {
       const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY));
       if (legacy && typeof legacy === "object") {
@@ -86,7 +88,7 @@
   let saveTimer = null;
   function flashSave() {
     const hint = document.getElementById("saveHint");
-    hint.textContent = ouchiCode ? "保存して同期中… ✨" : "保存したよ ✨";
+    hint.textContent = syncEnabled() ? "保存して同期中… ✨" : "保存したよ ✨";
     clearTimeout(saveTimer);
     saveTimer = setTimeout(
       () => (hint.textContent = "じどうで保存されるよ 💾"),
@@ -94,7 +96,7 @@
     );
   }
 
-  // ローカル変更があった時に呼ぶ（タイムスタンプ更新＋保存＋同期予約）
+  // ローカル変更時に呼ぶ（タイムスタンプ更新＋保存＋同期予約）
   function touch() {
     state.updatedAt = Date.now();
     saveLocal();
@@ -118,7 +120,6 @@
     const [y, mo] = m.split("-");
     return `${y}年${parseInt(mo, 10)}月`;
   }
-
   function move(arr, i, dir) {
     const j = i + dir;
     if (j < 0 || j >= arr.length) return false;
@@ -145,12 +146,8 @@
       const reorder = document.createElement("div");
       reorder.className = "reorder";
       reorder.append(
-        moveBtn("▲", () => {
-          if (move(data, i, -1)) { renderLineList(key); touch(); }
-        }),
-        moveBtn("▼", () => {
-          if (move(data, i, 1)) { renderLineList(key); touch(); }
-        })
+        moveBtn("▲", () => { if (move(data, i, -1)) { renderLineList(key); touch(); } }),
+        moveBtn("▼", () => { if (move(data, i, 1)) { renderLineList(key); touch(); } })
       );
 
       const name = document.createElement("input");
@@ -191,7 +188,6 @@
     const data = getMonth().credit;
     const body = document.getElementById("creditBody");
     body.innerHTML = "";
-
     data.forEach((item, i) => {
       const tr = document.createElement("tr");
       tr.append(
@@ -212,7 +208,6 @@
     const data = getMonth().special;
     const body = document.getElementById("specialBody");
     body.innerHTML = "";
-
     data.forEach((item, i) => {
       const tr = document.createElement("tr");
       tr.append(
@@ -226,7 +221,7 @@
     });
   }
 
-  // ---------- セル・ボタン生成ヘルパー ----------
+  // ---------- セル・ボタン生成 ----------
   function moveBtn(label, onClick) {
     const b = document.createElement("button");
     b.className = "move-btn";
@@ -314,12 +309,10 @@
     renderPiggy(income, balance);
   }
 
-  // ---------- 貯金ぶたメーター ----------
   function renderPiggy(income, balance) {
     const fill = document.getElementById("piggyFill");
     const msg = document.getElementById("piggyMsg");
     const rate = document.getElementById("piggyRate");
-
     if (income <= 0) {
       fill.style.width = "0%";
       msg.textContent = "数字を入力すると、ぶたさんがコメントするよ！";
@@ -329,7 +322,6 @@
     const pct = Math.min(100, Math.max(0, Math.round((balance / income) * 100)));
     fill.style.width = pct + "%";
     rate.textContent = `貯蓄率 ${Math.round((balance / income) * 100)}%`;
-
     if (balance < 0) {
       msg.textContent = "🐽💦 今月はちょっぴり使いすぎ…来月いっしょにがんばろ！";
     } else if (pct >= 30) {
@@ -362,7 +354,7 @@
   }
 
   // ====================================================================
-  //  同期（複数デバイス・無料・APIキー不要 / jsonblob）
+  //  同期（同じリンクで全端末・常時同期 / Firebase Realtime Database）
   // ====================================================================
   function fmtTime(ts) {
     if (!ts) return "";
@@ -381,31 +373,26 @@
     el.className = "sync-status" + (kind ? " " + kind : "");
     el.textContent = text;
     const t = document.getElementById("syncTime");
-    if (ouchiCode && lastSyncAt) {
-      t.textContent = `前回同期 ${fmtTime(lastSyncAt)} ・ おうちコード ${ouchiCode}`;
-    } else if (ouchiCode) {
-      t.textContent = `おうちコード ${ouchiCode}（まだ同期できていません）`;
+    if (!syncEnabled()) {
+      t.textContent = "この端末だけに保存中（全端末同期は設定待ち）";
+    } else if (lastSyncAt) {
+      t.textContent = `前回同期 ${fmtTime(lastSyncAt)}・どの端末で開いても自動同期`;
     } else {
-      t.textContent = "「おうちを共有」で家族と同じ家計簿を使えます";
+      t.textContent = "同期の準備中…";
     }
   }
 
-  function refreshStatusIdle() {
-    if (!ouchiCode) setStatus("", "📴 おうちコード未設定");
-    else setStatus("ok", "🏠 同期中のおうち");
+  function statusIdle() {
+    if (!syncEnabled()) setStatus("", "📴 同期OFF");
+    else setStatus("ok", "🔄 全端末で同期中");
   }
 
-  // 起動時・参加直後・手動更新・定期・タブ復帰でサーバの最新を取得
   async function pull(opts = {}) {
-    if (!ouchiCode || pulling) return;
+    if (!syncEnabled() || pulling) return;
     pulling = true;
     if (!opts.quiet) setStatus("syncing", "🔄 最新を確認中…");
     try {
-      const res = await fetch(`${BLOB_BASE}/${ouchiCode}`, {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      });
+      const res = await fetch(remoteUrl(), { method: "GET", cache: "no-store" });
       if (!res.ok) throw new Error("GET " + res.status);
       const remote = await res.json();
       if (remote && remote.months && (remote.updatedAt || 0) > (state.updatedAt || 0)) {
@@ -415,7 +402,7 @@
       }
       lastSyncAt = Date.now();
       localStorage.setItem(KEY_SYNC, String(lastSyncAt));
-      refreshStatusIdle();
+      statusIdle();
     } catch (e) {
       // 通信失敗時は最後に成功したデータ（ローカル）を表示したまま
       setStatus("err", "⚠️ オフライン（保存データを表示中）");
@@ -425,117 +412,35 @@
   }
 
   function schedulePush() {
-    if (!ouchiCode) return;
+    if (!syncEnabled()) return;
     clearTimeout(pushTimer);
-    pushTimer = setTimeout(push, 900);
+    pushTimer = setTimeout(push, 800);
   }
 
   async function push() {
-    if (!ouchiCode || pushing) return;
+    if (!syncEnabled()) return;
+    if (pushing) { pendingPush = true; return; }
     pushing = true;
     setStatus("syncing", "🔄 同期中…");
     try {
-      const res = await fetch(`${BLOB_BASE}/${ouchiCode}`, {
+      const res = await fetch(remoteUrl(), {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(state),
       });
       if (!res.ok) throw new Error("PUT " + res.status);
       lastSyncAt = Date.now();
       localStorage.setItem(KEY_SYNC, String(lastSyncAt));
-      refreshStatusIdle();
+      statusIdle();
     } catch (e) {
       setStatus("err", "⚠️ 同期できず（あとで自動リトライ）");
     } finally {
       pushing = false;
+      if (pendingPush) { pendingPush = false; schedulePush(); }
     }
   }
 
-  // 新しいおうち（共有ブロブ）を作成
-  async function createOuchi() {
-    setStatus("syncing", "🏠 おうちを作成中…");
-    try {
-      const res = await fetch(BLOB_BASE, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(state),
-      });
-      if (!res.ok && res.status !== 201) throw new Error("POST " + res.status);
-      const loc = res.headers.get("Location") || "";
-      const id = loc.split("/").pop();
-      if (!id) throw new Error("no-location");
-      setOuchiCode(id);
-      lastSyncAt = Date.now();
-      localStorage.setItem(KEY_SYNC, String(lastSyncAt));
-      refreshStatusIdle();
-      return id;
-    } catch (e) {
-      setStatus("err", "⚠️ おうちの作成に失敗（通信を確認してね）");
-      return null;
-    }
-  }
-
-  function setOuchiCode(code) {
-    ouchiCode = code;
-    localStorage.setItem(KEY_CODE, code);
-    const url = new URL(location.href);
-    url.searchParams.set("ouchi", code);
-    history.replaceState(null, "", url);
-  }
-
-  function shareUrl() {
-    const url = new URL(location.href);
-    url.searchParams.set("ouchi", ouchiCode);
-    return url.toString();
-  }
-
-  // ---------- 共有モーダル ----------
-  function openShareModal() {
-    const modal = document.getElementById("shareModal");
-    const note = document.getElementById("shareNote");
-    const fill = () => {
-      document.getElementById("shareLink").value = shareUrl();
-      document.getElementById("shareCode").value = ouchiCode;
-    };
-    modal.hidden = false;
-    if (!ouchiCode) {
-      note.textContent = "おうちを作成しています…";
-      createOuchi().then((id) => {
-        if (id) { fill(); note.textContent = "このリンクを別の端末で開いてね 💌"; }
-        else note.textContent = "通信エラーで作成できませんでした。少し待って再度お試しください。";
-      });
-    } else {
-      fill();
-      note.textContent = "このリンクを別の端末で開いてね 💌";
-    }
-  }
-
-  async function joinOuchi() {
-    const input = prompt("参加するおうちコードを入力してね\n（別の端末で発行した共有リンク／コードを使ってね）");
-    if (!input) return;
-    const code = input.trim().split("/").pop().split("?")[0];
-    if (!code) return;
-    setOuchiCode(code);
-    setStatus("syncing", "🔄 おうちに参加中…");
-    // 参加先のデータを優先して取り込む
-    state.updatedAt = 0;
-    await pull();
-  }
-
-  // ---------- コピー ----------
-  async function copyText(text, btn) {
-    try {
-      await navigator.clipboard.writeText(text);
-      const old = btn.textContent;
-      btn.textContent = "コピー済 ✓";
-      setTimeout(() => (btn.textContent = old), 1400);
-    } catch {
-      document.getElementById("shareNote").textContent =
-        "コピーできませんでした。手動で選択してコピーしてね。";
-    }
-  }
-
-  // ---------- アプリ更新チェック（Webキャッシュ対策） ----------
+  // ---------- アプリ更新チェック ----------
   async function checkAppUpdate() {
     try {
       const res = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -543,8 +448,7 @@
       const { version } = await res.json();
       if (version && version !== APP_VERSION) {
         const hint = document.getElementById("saveHint");
-        hint.innerHTML =
-          '✨ 新しいバージョンがあります → <a href="#" id="reloadApp">再読み込み</a>';
+        hint.innerHTML = '✨ 新しいバージョンがあります → <a href="#" id="reloadApp">再読み込み</a>';
         document.getElementById("reloadApp")?.addEventListener("click", (e) => {
           e.preventDefault();
           location.reload();
@@ -557,14 +461,6 @@
   //  初期化
   // ====================================================================
   function init() {
-    // URLの ?ouchi= があれば参加扱い
-    const urlCode = new URLSearchParams(location.search).get("ouchi");
-    if (urlCode && urlCode !== ouchiCode) {
-      setOuchiCode(urlCode);
-      state.updatedAt = 0; // 参加先を優先
-    }
-
-    // 追加ボタン
     document.querySelectorAll(".add-line").forEach((btn) => {
       btn.addEventListener("click", () => {
         const target = btn.dataset.target;
@@ -584,20 +480,17 @@
       });
     });
 
-    // 月ナビ
     document.getElementById("prevMonth").addEventListener("click", () => shiftMonth(-1));
     document.getElementById("nextMonth").addEventListener("click", () => shiftMonth(1));
     document.getElementById("monthPicker").addEventListener("change", (e) => {
       if (e.target.value) { currentMonth = e.target.value; renderAll(); }
     });
 
-    // メモ
     document.getElementById("memo").addEventListener("input", (e) => {
       getMonth().memo = e.target.value;
       touch();
     });
 
-    // リセット
     document.getElementById("resetMonth").addEventListener("click", () => {
       if (confirm(`${monthLabel(currentMonth)} の内容をリセットしますか？`)) {
         state.months[currentMonth] = blankMonth();
@@ -606,40 +499,20 @@
       }
     });
 
-    // 同期系ボタン
-    document.getElementById("refreshBtn").addEventListener("click", () => {
-      if (ouchiCode) pull();
-      else openShareModal();
-    });
-    document.getElementById("shareBtn").addEventListener("click", openShareModal);
-    document.getElementById("joinBtn").addEventListener("click", joinOuchi);
-
-    // モーダル
-    document.getElementById("shareClose").addEventListener("click", () => {
-      document.getElementById("shareModal").hidden = true;
-    });
-    document.getElementById("shareModal").addEventListener("click", (e) => {
-      if (e.target.id === "shareModal") e.target.hidden = true;
-    });
-    document.getElementById("copyLink").addEventListener("click", (e) =>
-      copyText(document.getElementById("shareLink").value, e.target)
-    );
-    document.getElementById("copyCode").addEventListener("click", (e) =>
-      copyText(document.getElementById("shareCode").value, e.target)
-    );
+    document.getElementById("refreshBtn").addEventListener("click", () => pull());
 
     renderAll();
-    refreshStatusIdle();
+    statusIdle();
 
-    // 起動時にサーバ最新を取得（要件: 起動時更新）
-    if (ouchiCode) pull();
+    // 起動時にサーバ最新を取得
+    if (syncEnabled()) pull();
 
     // 定期バックグラウンド更新＋タブ復帰時更新
     setInterval(() => {
-      if (ouchiCode && document.visibilityState === "visible") pull({ quiet: true });
+      if (syncEnabled() && document.visibilityState === "visible") pull({ quiet: true });
     }, POLL_MS);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && ouchiCode) pull({ quiet: true });
+      if (document.visibilityState === "visible" && syncEnabled()) pull({ quiet: true });
     });
 
     checkAppUpdate();
