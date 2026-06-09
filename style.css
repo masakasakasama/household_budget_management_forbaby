@@ -456,9 +456,66 @@ body {
 .footer-btn:hover { background: var(--pink); color: #fff; }
 .save-hint { font-size: 12px; color: var(--ink-soft); }
 
-/* ---------- レスポンシブ ---------- */
+/* ---------- レスポンシブ（スマホ最適化） ---------- */
 @media (max-width: 760px) {
-  .columns { grid-template-columns: 1fr; }
-  .highlight-row { grid-template-columns: 1fr; }
-  .app-title { font-size: 26px; }
+  .app {
+    padding: 12px max(10px, env(safe-area-inset-right)) calc(80px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  }
+
+  .columns { grid-template-columns: 1fr; gap: 12px; }
+  .col { gap: 12px; }
+
+  /* ハイライトは3つ横並びのままコンパクトに */
+  .highlight-row { grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
+  .hl-card { padding: 10px 6px; border-radius: 16px; }
+  .hl-emoji { font-size: 20px; }
+  .hl-label { font-size: 10px; }
+  .hl-value { font-size: 16px; }
+  .hl-note { font-size: 9px; }
+
+  .app-title { font-size: 24px; }
+  .app-subtitle { font-size: 12px; }
+  .mascot-strip { font-size: 24px; letter-spacing: 5px; }
+
+  .card { padding: 13px 12px; border-radius: 18px; }
+  .card-head h2 { font-size: 15px; }
+
+  /* 入力欄は16pxにして、iOSのフォーカス時ズームを防ぐ */
+  .line-name,
+  .line-amount,
+  .data-table td input,
+  .memo-area,
+  .copy-input { font-size: 16px; }
+
+  /* 明細行をコンパクト＆金額欄が見切れないように */
+  .line-row { gap: 6px; padding: 5px 7px; }
+  .line-name { padding: 6px 4px; }
+  .line-amount { width: 38vw; max-width: 130px; padding: 8px 8px; }
+
+  /* タップしやすいボタンサイズ */
+  .move-btn { font-size: 12px; padding: 4px 6px; }
+  .reorder { gap: 0; }
+  .del-btn { width: 30px; height: 30px; font-size: 18px; }
+
+  /* 同期バーは折り返して見やすく */
+  .sync-bar { gap: 8px; }
+  .sync-actions { flex-wrap: wrap; justify-content: center; }
+  .sync-btn { padding: 9px 14px; font-size: 13px; }
+  .month-cloud { font-size: 16px; padding: 7px 20px; }
+
+  /* テーブルは横スクロールでスマホ対応 */
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+  .data-table { min-width: 460px; }
+  .data-table td input { padding: 9px 6px; }
+  .reorder-cell .move-btn { font-size: 11px; }
+
+  .subtotal { font-size: 14px; padding: 10px 12px; }
+  .footer-btn { font-size: 14px; padding: 11px 22px; }
+}
+
+@media (max-width: 380px) {
+  .highlight-row { grid-template-columns: 1fr 1fr; }
+  .hl-balance { grid-column: span 2; }
+  .app-title { font-size: 21px; }
+  .line-amount { width: 34vw; }
 }
