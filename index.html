@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=1.4.0" />
+  <link rel="stylesheet" href="style.css?v=1.4.1" />
 </head>
 <body>
   <div class="app">
@@ -91,13 +91,6 @@
           </div>
         </section>
 
-        <section class="card card-memo">
-          <div class="card-head">
-            <span class="card-emoji">📝</span>
-            <h2>memo</h2>
-          </div>
-          <textarea id="memo" class="memo-area" placeholder="6月のメモを書く"></textarea>
-        </section>
       </div>
 
       <div class="col">
@@ -106,37 +99,11 @@
             <span class="card-emoji">🧺</span>
             <h2>すでに使ったやつ</h2>
           </div>
-          <div class="table-wrap">
-            <table class="data-table" id="creditTable">
-              <thead>
-                <tr>
-                  <th></th>
-                  <th>6月</th>
-                  <th>カテゴリ</th>
-                  <th>メモ</th>
-                  <th class="num">金額</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="creditBody"></tbody>
-            </table>
-          </div>
+          <div class="expense-list" id="creditBody"></div>
           <button class="add-line" data-target="credit">＋支出を追加</button>
           <div class="subtotal">
             <span>使用済み合計</span>
             <span id="creditTotal">¥0</span>
-          </div>
-        </section>
-
-        <section class="card card-living">
-          <div class="card-head">
-            <span class="card-emoji">📅</span>
-            <h2>日別まとめ</h2>
-          </div>
-          <div class="line-list" id="livingList"></div>
-          <div class="subtotal">
-            <span>画像2の合計</span>
-            <span id="livingTotal">¥0</span>
           </div>
         </section>
 
@@ -160,7 +127,7 @@
     </footer>
   </div>
 
-  <script src="sync-config.js?v=1.4.0"></script>
-  <script src="app.js?v=1.4.0"></script>
+  <script src="sync-config.js?v=1.4.1"></script>
+  <script src="app.js?v=1.4.1"></script>
 </body>
 </html>

@@ -420,6 +420,59 @@ body {
 .data-table td.check-cell input { width: 18px; height: 18px; accent-color: var(--pink-deep); cursor: pointer; }
 .data-table td.del-cell { background: var(--cream); border-radius: 0 10px 10px 0; text-align: center; }
 
+/* ---------- 支出リスト ---------- */
+.expense-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.expense-row {
+  display: grid;
+  grid-template-columns: auto minmax(48px, .55fr) minmax(110px, 1.2fr) minmax(88px, .8fr) auto;
+  align-items: end;
+  gap: 7px;
+  background: var(--cream);
+  border-radius: 14px;
+  padding: 8px;
+  min-width: 0;
+}
+.expense-reorder {
+  display: flex;
+  flex-direction: column;
+  align-self: center;
+  flex-shrink: 0;
+}
+.expense-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.expense-field span {
+  font-size: 10px;
+  color: var(--ink-soft);
+  font-weight: 700;
+  padding-left: 2px;
+}
+.expense-field input,
+.expense-field select {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: #fff;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  padding: 7px 8px;
+}
+.expense-field input:focus,
+.expense-field select:focus { outline: 2px solid var(--lavender); }
+.expense-field input.amount-cell {
+  text-align: right;
+  font-weight: 800;
+}
+
 /* ---------- 貯金ぶた ---------- */
 .piggy-msg { font-size: 14px; margin: 4px 0 12px; font-weight: 500; min-height: 20px; }
 .piggy-meter {
@@ -489,6 +542,8 @@ body {
   /* 入力欄は16pxにして、iOSのフォーカス時ズームを防ぐ */
   .line-name,
   .line-amount,
+  .expense-field input,
+  .expense-field select,
   .data-table td input,
   .memo-area,
   .copy-input { font-size: 16px; }
@@ -509,11 +564,14 @@ body {
   .sync-btn { padding: 9px 14px; font-size: 13px; }
   .month-cloud { font-size: 16px; padding: 7px 20px; }
 
-  /* テーブルは横スクロールでスマホ対応 */
-  .table-wrap { -webkit-overflow-scrolling: touch; }
-  .data-table { min-width: 460px; }
-  .data-table td input { padding: 9px 6px; }
-  .reorder-cell .move-btn { font-size: 11px; }
+  .expense-row {
+    grid-template-columns: auto minmax(42px, .5fr) minmax(108px, 1.25fr) minmax(84px, .8fr) auto;
+    gap: 5px;
+    padding: 7px;
+  }
+  .expense-field span { font-size: 9px; }
+  .expense-field input,
+  .expense-field select { padding: 8px 6px; }
 
   .subtotal { font-size: 14px; padding: 10px 12px; }
   .footer-btn { font-size: 14px; padding: 11px 22px; }

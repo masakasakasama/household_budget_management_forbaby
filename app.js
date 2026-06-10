@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "1.4.0";
+  const APP_VERSION = "1.4.1";
   const KEY_DATA = "baby-budget-data-v2";
   const KEY_SYNC = "baby-budget-lastsync-v2";
   const POLL_MS = 15000;
@@ -34,25 +34,24 @@
         { name: "subscriptions", amount: 10000 },
       ],
       expenses: [
-        { day: 1, category: "groceries", memo: "901 (1)", amount: 901 },
-        { day: 2, category: "groceries", memo: "250 + 928 (2)", amount: 250 },
-        { day: 2, category: "groceries", memo: "250 + 928 (2)", amount: 928 },
-        { day: 3, category: "groceries", memo: "0 (3)", amount: 0 },
-        { day: 4, category: "groceries", memo: "581 (4)", amount: 581 },
-        { day: 5, category: "eating out", memo: "1199 (5; 外食)", amount: 1199 },
-        { day: 6, category: "eating out", memo: "1900 (6; 外食)", amount: 1900 },
-        { day: 6, category: "transportation", memo: "2000 (交通費)", amount: 2000 },
-        { day: 7, category: "groceries", memo: "676 (7)", amount: 676 },
-        { day: 8, category: "groceries", memo: "356 + 386 + 717 (8)", amount: 356 },
-        { day: 8, category: "groceries", memo: "356 + 386 + 717 (8)", amount: 386 },
-        { day: 8, category: "groceries", memo: "356 + 386 + 717 (8)", amount: 717 },
-        { day: 9, category: "groceries", memo: "232 (9)", amount: 232 },
-        { day: 10, category: "groceries", memo: "255 + 165 + 909 (10)", amount: 255 },
-        { day: 10, category: "groceries", memo: "255 + 165 + 909 (10)", amount: 165 },
-        { day: 10, category: "groceries", memo: "255 + 165 + 909 (10)", amount: 909 },
-        { day: 10, category: "subscriptions", memo: "Subscriptions 400+___", amount: 400 },
+        { day: 1, category: "groceries", amount: 901 },
+        { day: 2, category: "groceries", amount: 250 },
+        { day: 2, category: "groceries", amount: 928 },
+        { day: 3, category: "groceries", amount: 0 },
+        { day: 4, category: "groceries", amount: 581 },
+        { day: 5, category: "eating out", amount: 1199 },
+        { day: 6, category: "eating out", amount: 1900 },
+        { day: 6, category: "transportation", amount: 2000 },
+        { day: 7, category: "groceries", amount: 676 },
+        { day: 8, category: "groceries", amount: 356 },
+        { day: 8, category: "groceries", amount: 386 },
+        { day: 8, category: "groceries", amount: 717 },
+        { day: 9, category: "groceries", amount: 232 },
+        { day: 10, category: "groceries", amount: 255 },
+        { day: 10, category: "groceries", amount: 165 },
+        { day: 10, category: "groceries", amount: 909 },
+        { day: 10, category: "subscriptions", amount: 400 },
       ],
-      memo: "画像1: 毎月使う上限 230,000。画像2: 6月1日から10日までの使用済み。",
     };
   }
 
@@ -76,11 +75,38 @@
   function load() {
     try {
       const saved = JSON.parse(localStorage.getItem(KEY_DATA));
-      if (saved?.months) return saved;
+      if (saved?.months) {
+        normalizeState(saved);
+        return saved;
+      }
     } catch {}
     const seeded = initialState();
+    normalizeState(seeded);
     localStorage.setItem(KEY_DATA, JSON.stringify(seeded));
     return seeded;
+  }
+
+  function normalizeState(targetState = state) {
+    let changed = false;
+    Object.values(targetState.months || {}).forEach((month) => {
+      if (Array.isArray(month.expenses)) {
+        const before = month.expenses.length;
+        month.expenses = month.expenses
+          .filter((expense) => String(expense.amount ?? "").trim() !== "")
+          .map((expense) => {
+            if (!("memo" in expense)) return expense;
+            const { memo, ...rest } = expense;
+            changed = true;
+            return rest;
+          });
+        if (month.expenses.length !== before) changed = true;
+      }
+      if ("memo" in month) {
+        delete month.memo;
+        changed = true;
+      }
+    });
+    return changed;
   }
 
   function monthData() {
@@ -180,58 +206,26 @@
     const expenses = monthData().expenses;
     body.innerHTML = "";
     expenses.forEach((item, index) => {
-      const tr = document.createElement("tr");
-      tr.append(
-        reorderCell(expenses, index, renderAndTouch),
-        cell(item, "day", "1", "numeric"),
-        selectCell(item, "category"),
-        cell(item, "memo", "メモ"),
-        cell(item, "amount", "0", "numeric amount-cell"),
-        delCell(() => {
-          expenses.splice(index, 1);
-          renderAndTouch();
-        })
-      );
-      body.appendChild(tr);
-    });
-  }
-
-  function renderDaily() {
-    const grouped = new Map();
-    monthData().expenses.forEach((expense) => {
-      const day = num(expense.day);
-      if (!grouped.has(day)) grouped.set(day, []);
-      grouped.get(day).push(expense);
-    });
-
-    const lines = [...grouped.entries()]
-      .sort(([a], [b]) => a - b)
-      .map(([day, items]) => {
-        const amountText = items.map((item) => num(item.amount)).join(" + ");
-        const labels = [...new Set(items.map((item) => item.category).filter(Boolean))];
-        return {
-          name: `${amountText} (${day}${labels.length ? `; ${labels.join(" / ")}` : ""})`,
-          amount: sum(items),
-        };
-      });
-    const wrap = document.getElementById("livingList");
-    wrap.innerHTML = "";
-    lines.forEach((item) => {
       const row = document.createElement("div");
-      row.className = "line-row";
-      const name = document.createElement("input");
-      name.className = "line-name";
-      name.value = item.name;
-      name.readOnly = true;
-      const mark = document.createElement("span");
-      mark.className = "line-yen";
-      mark.textContent = "¥";
-      const amount = document.createElement("input");
-      amount.className = "line-amount";
-      amount.value = item.amount;
-      amount.readOnly = true;
-      row.append(name, mark, amount);
-      wrap.appendChild(row);
+      row.className = "expense-row";
+
+      const reorder = document.createElement("div");
+      reorder.className = "expense-reorder";
+      reorder.append(
+        smallButton("▲", () => move(expenses, index, -1, renderAndTouch)),
+        smallButton("▼", () => move(expenses, index, 1, renderAndTouch))
+      );
+
+      const day = labeledInput("日", item, "day", "1", "numeric");
+      const category = labeledSelect("カテゴリ", item, "category");
+      const amount = labeledInput("金額", item, "amount", "0", "numeric amount-cell");
+      const del = deleteButton(() => {
+        expenses.splice(index, 1);
+        renderAndTouch();
+      });
+
+      row.append(reorder, day, category, amount, del);
+      body.appendChild(row);
     });
   }
 
@@ -244,12 +238,10 @@
 
     document.getElementById("monthLabel").textContent = monthLabel(currentMonth);
     document.getElementById("monthPicker").value = currentMonth;
-    document.getElementById("memo").value = data.memo || "";
 
     renderLineList("income", data.limit, "incomeList", renderAndTouch);
     renderLineList("fixed", data.budgets, "fixedList", renderAndTouch);
     renderExpenses();
-    renderDaily();
 
     updateTotals();
     statusIdle();
@@ -264,7 +256,6 @@
 
     document.getElementById("incomeTotal").textContent = yen(limit);
     document.getElementById("fixedTotal").textContent = yen(budgetTotal);
-    document.getElementById("livingTotal").textContent = yen(spent);
     document.getElementById("creditTotal").textContent = yen(spent);
     document.getElementById("hlIncome").textContent = yen(limit);
     document.getElementById("hlExpense").textContent = yen(spent);
@@ -345,6 +336,24 @@
     return td;
   }
 
+  function labeledInput(label, item, key, placeholder, mode = "") {
+    const wrap = document.createElement("label");
+    wrap.className = "expense-field";
+    const caption = document.createElement("span");
+    caption.textContent = label;
+    const input = document.createElement("input");
+    if (mode.includes("numeric")) input.inputMode = "numeric";
+    if (mode.includes("amount-cell")) input.className = "amount-cell";
+    input.value = item[key] ?? "";
+    input.placeholder = placeholder;
+    input.addEventListener("input", () => {
+      item[key] = input.value;
+      persistAndRefreshTotals();
+    });
+    wrap.append(caption, input);
+    return wrap;
+  }
+
   function selectCell(item, key) {
     const td = document.createElement("td");
     const select = document.createElement("select");
@@ -361,6 +370,27 @@
     });
     td.appendChild(select);
     return td;
+  }
+
+  function labeledSelect(label, item, key) {
+    const wrap = document.createElement("label");
+    wrap.className = "expense-field expense-category";
+    const caption = document.createElement("span");
+    caption.textContent = label;
+    const select = document.createElement("select");
+    categoryOptions.forEach((name) => {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      select.appendChild(option);
+    });
+    select.value = item[key] || categoryOptions[0];
+    select.addEventListener("change", () => {
+      item[key] = select.value;
+      renderAndTouch();
+    });
+    wrap.append(caption, select);
+    return wrap;
   }
 
   function delCell(onClick) {
@@ -519,10 +549,15 @@
         }
         remoteApplying = true;
         state = remote;
+        const cleaned = normalizeState(state);
         localStorage.setItem(KEY_DATA, JSON.stringify(state));
         localStorage.setItem(KEY_SYNC, String(Date.now()));
         render();
         remoteApplying = false;
+        if (cleaned) {
+          state.updatedAt = Date.now();
+          touch();
+        }
       }, () => {
         document.getElementById("syncStatus").textContent = "Firestore接続失敗";
         document.getElementById("syncTime").textContent = "Firestoreルール、apiKey/appId、匿名ログイン設定を確認してください";
@@ -555,7 +590,7 @@
         if (button.dataset.target === "income") data.limit.push({ name: "", amount: "" });
         if (button.dataset.target === "fixed") data.budgets.push({ name: "", amount: "" });
         if (button.dataset.target === "credit") {
-          data.expenses.push({ day: 10, category: "groceries", memo: "", amount: "" });
+          data.expenses.push({ day: 10, category: "groceries", amount: 0 });
         }
         renderAndTouch();
       });
@@ -566,10 +601,6 @@
     document.getElementById("monthPicker").addEventListener("change", (event) => {
       currentMonth = event.target.value || currentMonth;
       render();
-    });
-    document.getElementById("memo").addEventListener("input", (event) => {
-      monthData().memo = event.target.value;
-      touch();
     });
     document.getElementById("resetMonth").addEventListener("click", () => {
       if (!confirm("6月の画像データに戻しますか？")) return;
