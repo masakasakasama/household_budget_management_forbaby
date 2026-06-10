@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "1.4.1";
+  const APP_VERSION = "1.5.0";
   const KEY_DATA = "baby-budget-data-v2";
   const KEY_SYNC = "baby-budget-lastsync-v2";
   const POLL_MS = 15000;
@@ -24,7 +24,6 @@
 
   function seedMonth() {
     return {
-      limit: [{ name: "毎月使う上限", amount: 230000 }],
       budgets: [
         { name: "Rent + Utilities", amount: 80000 },
         { name: "groceries", amount: 30000 },
@@ -100,6 +99,10 @@
             return rest;
           });
         if (month.expenses.length !== before) changed = true;
+      }
+      if ("limit" in month) {
+        delete month.limit;
+        changed = true;
       }
       if ("memo" in month) {
         delete month.memo;
@@ -231,17 +234,15 @@
 
   function render() {
     const data = monthData();
-    const limit = sum(data.limit);
     const budgetTotal = sum(data.budgets);
     const spent = sum(data.expenses);
-    const remaining = limit - spent;
 
     document.getElementById("monthLabel").textContent = monthLabel(currentMonth);
     document.getElementById("monthPicker").value = currentMonth;
 
-    renderLineList("income", data.limit, "incomeList", renderAndTouch);
     renderLineList("fixed", data.budgets, "fixedList", renderAndTouch);
     renderExpenses();
+    renderCategoryChart();
 
     updateTotals();
     statusIdle();
@@ -249,12 +250,11 @@
 
   function updateTotals() {
     const data = monthData();
-    const limit = sum(data.limit);
     const budgetTotal = sum(data.budgets);
+    const limit = budgetTotal;
     const spent = sum(data.expenses);
     const remaining = limit - spent;
 
-    document.getElementById("incomeTotal").textContent = yen(limit);
     document.getElementById("fixedTotal").textContent = yen(budgetTotal);
     document.getElementById("creditTotal").textContent = yen(spent);
     document.getElementById("hlIncome").textContent = yen(limit);
@@ -262,8 +262,45 @@
     const balance = document.getElementById("hlBalance");
     balance.textContent = yen(remaining);
     balance.style.color = remaining < 0 ? "#e5556e" : "var(--ink)";
-    document.getElementById("balanceNote").textContent = `カテゴリ上限合計 ${yen(budgetTotal)}`;
+    document.getElementById("balanceNote").textContent = "カテゴリ上限から自動計算";
+    document.getElementById("savingTarget").textContent = yen(Math.max(0, remaining));
     renderPiggy(limit, spent, remaining);
+  }
+
+  function budgetFor(category) {
+    return monthData().budgets.find((item) => item.name === category);
+  }
+
+  function spentFor(category) {
+    return monthData().expenses
+      .filter((expense) => expense.category === category)
+      .reduce((total, expense) => total + num(expense.amount), 0);
+  }
+
+  function renderCategoryChart() {
+    const wrap = document.getElementById("categoryChart");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    monthData().budgets.forEach((budget) => {
+      const limit = num(budget.amount);
+      const spent = spentFor(budget.name);
+      const remaining = limit - spent;
+      const pct = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
+      const row = document.createElement("div");
+      row.className = "category-row";
+      row.innerHTML = `
+        <div class="category-top">
+          <strong>${budget.name || "未設定"}</strong>
+          <span>${yen(spent)} / ${yen(limit)}</span>
+        </div>
+        <div class="category-bar"><span style="width:${pct}%"></span></div>
+        <div class="category-bottom">
+          <span>${pct}%使用</span>
+          <span>${remaining >= 0 ? "残り " + yen(remaining) : "オーバー " + yen(Math.abs(remaining))}</span>
+        </div>
+      `;
+      wrap.appendChild(row);
+    });
   }
 
   function renderAndTouch() {
@@ -277,9 +314,9 @@
     document.getElementById("piggyRate").textContent = `上限の${pct}%使用`;
     const msg = document.getElementById("piggyMsg");
     if (remaining < 0) msg.textContent = "上限を超えています。今日の追加支出を確認してね。";
-    else if (pct < 25) msg.textContent = "まだ余裕あり。6月10日時点ではかなり安全ペースです。";
-    else if (pct < 70) msg.textContent = "いいペース。外食と交通費だけ少し見ておこう。";
-    else msg.textContent = "残りが少なめ。必要な支出だけにしぼろう。";
+    else if (pct < 25) msg.textContent = "かなりいいペース。残った分はそのまま貯金に回せそう。";
+    else if (pct < 70) msg.textContent = "まだ大丈夫。カテゴリ別の残りを見ながら使おう。";
+    else msg.textContent = "残りが少なめ。今週は必要な支出だけにしぼろう。";
   }
 
   function smallButton(label, onClick) {
@@ -410,6 +447,7 @@
   function statusIdle() {
     const status = document.getElementById("syncStatus");
     const time = document.getElementById("syncTime");
+    if (!status || !time) return;
     if (!syncEnabled()) {
       status.textContent = "Firestore設定待ち";
       time.textContent = "FirebaseのapiKey/appIdをsync-config.jsに入れると彼女の端末と同期します";
@@ -587,7 +625,6 @@
     document.querySelectorAll(".add-line").forEach((button) => {
       button.addEventListener("click", () => {
         const data = monthData();
-        if (button.dataset.target === "income") data.limit.push({ name: "", amount: "" });
         if (button.dataset.target === "fixed") data.budgets.push({ name: "", amount: "" });
         if (button.dataset.target === "credit") {
           data.expenses.push({ day: 10, category: "groceries", amount: 0 });
@@ -602,14 +639,8 @@
       currentMonth = event.target.value || currentMonth;
       render();
     });
-    document.getElementById("resetMonth").addEventListener("click", () => {
-      if (!confirm("6月の画像データに戻しますか？")) return;
-      state.months["2026-06"] = seedMonth();
-      currentMonth = "2026-06";
-      renderAndTouch();
-    });
-    document.getElementById("refreshBtn").addEventListener("click", pull);
-    document.getElementById("shareBtn").addEventListener("click", createShareLink);
+    document.getElementById("refreshBtn")?.addEventListener("click", pull);
+    document.getElementById("shareBtn")?.addEventListener("click", createShareLink);
 
     render();
     initFirestoreSync();

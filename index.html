@@ -16,14 +16,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=1.4.1" />
+  <link rel="stylesheet" href="style.css?v=1.5.0" />
 </head>
 <body>
   <div class="app">
     <header class="app-header">
       <div class="mascot-strip" aria-hidden="true">🍼 🧸 ⭐ 🌙 💕</div>
       <h1 class="app-title">Baby家計簿</h1>
-      <p class="app-subtitle">6月の上限と、すでに使った金額をかわいく管理</p>
+      <p class="app-subtitle">使った分と残せる分がすぐ見える家計簿</p>
 
       <div class="month-bar">
         <button class="month-nav" id="prevMonth" aria-label="前の月">‹</button>
@@ -34,20 +34,14 @@
         <button class="month-nav" id="nextMonth" aria-label="次の月">›</button>
       </div>
 
-      <div class="sync-bar">
-        <span class="sync-status" id="syncStatus" title="同期の状態">ローカル保存</span>
-        <div class="sync-actions">
-          <button class="sync-btn" id="shareBtn" title="彼女と同じデータを見るリンクを作る">共有リンク</button>
-          <button class="sync-btn sync-btn-main" id="refreshBtn" title="最新データを確認">今すぐ更新</button>
-        </div>
-        <span class="sync-time" id="syncTime"></span>
-      </div>
+      <span class="sync-status app-hidden" id="syncStatus" title="同期の状態">接続中</span>
+      <span class="sync-time app-hidden" id="syncTime"></span>
     </header>
 
     <section class="highlight-row">
       <div class="hl-card hl-income">
         <span class="hl-emoji">💰</span>
-        <span class="hl-label">毎月使う上限</span>
+        <span class="hl-label">カテゴリ上限合計</span>
         <span class="hl-value" id="hlIncome">¥0</span>
       </div>
       <div class="hl-card hl-expense">
@@ -65,16 +59,19 @@
 
     <div class="columns">
       <div class="col">
-        <section class="card card-income">
+        <section class="card card-piggy">
           <div class="card-head">
-            <span class="card-emoji">🎀</span>
-            <h2>毎月使う上限</h2>
+            <span class="card-emoji">🐷</span>
+            <h2>今月のペース</h2>
           </div>
-          <div class="line-list" id="incomeList"></div>
-          <button class="add-line" data-target="income">＋上限を追加</button>
-          <div class="subtotal">
-            <span>上限合計</span>
-            <span id="incomeTotal">¥0</span>
+          <p class="piggy-msg" id="piggyMsg">読み込み中...</p>
+          <div class="piggy-meter">
+            <div class="piggy-fill" id="piggyFill"></div>
+          </div>
+          <p class="piggy-rate" id="piggyRate"></p>
+          <div class="saving-box">
+            <span>残せる予定</span>
+            <strong id="savingTarget">¥0</strong>
           </div>
         </section>
 
@@ -89,6 +86,14 @@
             <span>カテゴリ上限合計</span>
             <span id="fixedTotal">¥0</span>
           </div>
+        </section>
+
+        <section class="card card-special">
+          <div class="card-head">
+            <span class="card-emoji">🍰</span>
+            <h2>カテゴリ別の使い方</h2>
+          </div>
+          <div class="category-chart" id="categoryChart"></div>
         </section>
 
       </div>
@@ -107,27 +112,15 @@
           </div>
         </section>
 
-        <section class="card card-piggy">
-          <div class="card-head">
-            <span class="card-emoji">🐷</span>
-            <h2>今月のペース</h2>
-          </div>
-          <p class="piggy-msg" id="piggyMsg">読み込み中...</p>
-          <div class="piggy-meter">
-            <div class="piggy-fill" id="piggyFill"></div>
-          </div>
-          <p class="piggy-rate" id="piggyRate"></p>
-        </section>
       </div>
     </div>
 
     <footer class="app-footer">
-      <button class="footer-btn" id="resetMonth">6月の画像データに戻す</button>
       <span class="save-hint" id="saveHint">自動で保存されます</span>
     </footer>
   </div>
 
-  <script src="sync-config.js?v=1.4.1"></script>
-  <script src="app.js?v=1.4.1"></script>
+  <script src="sync-config.js?v=1.5.0"></script>
+  <script src="app.js?v=1.5.0"></script>
 </body>
 </html>

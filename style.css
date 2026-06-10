@@ -19,6 +19,7 @@
 * { box-sizing: border-box; }
 
 html, body { max-width: 100%; overflow-x: hidden; }
+.app-hidden { display: none !important; }
 
 body {
   margin: 0;
@@ -237,6 +238,28 @@ body {
 .hl-label { font-size: 12px; color: var(--ink-soft); font-weight: 700; }
 .hl-value { font-size: 24px; font-weight: 800; }
 .hl-note { font-size: 10px; color: var(--ink-soft); }
+
+.saving-box {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff, var(--mint));
+  border: 2px dashed rgba(116, 198, 157, .55);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.saving-box span {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+.saving-box strong {
+  color: var(--mint-deep);
+  font-size: 24px;
+  line-height: 1;
+}
 
 /* ---------- レイアウト ---------- */
 .columns {
@@ -473,6 +496,57 @@ body {
   font-weight: 800;
 }
 
+/* ---------- カテゴリ別グラフ ---------- */
+.category-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.category-row {
+  background: var(--cream);
+  border-radius: 16px;
+  padding: 11px 12px;
+  box-shadow: inset 0 0 0 1px rgba(240, 226, 216, .7);
+}
+.category-top,
+.category-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.category-top strong {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.category-top span {
+  flex-shrink: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+.category-bar {
+  height: 13px;
+  margin: 8px 0 6px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid var(--line);
+  overflow: hidden;
+}
+.category-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--mint), var(--pink-deep));
+}
+.category-bottom span {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 /* ---------- 貯金ぶた ---------- */
 .piggy-msg { font-size: 14px; margin: 4px 0 12px; font-weight: 500; min-height: 20px; }
 .piggy-meter {
@@ -538,6 +612,7 @@ body {
 
   .card { padding: 13px 12px; border-radius: 18px; }
   .card-head h2 { font-size: 15px; }
+  .saving-box strong { font-size: 21px; }
 
   /* 入力欄は16pxにして、iOSのフォーカス時ズームを防ぐ */
   .line-name,
@@ -572,6 +647,8 @@ body {
   .expense-field span { font-size: 9px; }
   .expense-field input,
   .expense-field select { padding: 8px 6px; }
+  .category-top { align-items: flex-start; }
+  .category-top span { font-size: 11px; }
 
   .subtotal { font-size: 14px; padding: 10px 12px; }
   .footer-btn { font-size: 14px; padding: 11px 22px; }
