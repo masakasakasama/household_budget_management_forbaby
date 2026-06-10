@@ -9,7 +9,9 @@
 - `style.css` は既存デザインを維持。
 - `index.html` の文字化けしていた表示文言を日本語に整理。
 - `app.js` を6月データ用に整理。
-- 公開URLに共有IDを出さない方針に変更。複数デバイス自動同期は `sync-config.js` の `window.BABY_SYNC_URL` にブラウザ対応の同期先を入れた時だけ有効。
+- 公開URLに共有IDを出さない方針に変更。複数デバイス同期は Firebase Web SDK + 匿名ログイン + Firestore `spaces/household_budget_management_forbaby/budget/state` で実装。
+- `sync-config.js` の `window.BABY_FIREBASE_CONFIG` に Firebase Console の Household_budget Webアプリ設定を反映済み。
+- ローカル確認で `Firestore同期ON` 表示を確認済み。Firebase Authentication の匿名ログインが無効だと接続失敗する。
 - 画像1の「毎月使う上限」230,000円とカテゴリ上限を初期データ化。
 - 画像2の「すでに使ったやつ」を6/1から6/10まで初期データ化。
 - subscriptions の `400+___` は、確定している400円のみ反映。

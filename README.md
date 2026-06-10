@@ -42,14 +42,15 @@ python -m http.server 8000
 
 https://masakasakasama.github.io/household_budget_management_forbaby/
 
-URLに共有IDは出しません。この普通のリンクを開けば、どの端末でも同じ6月初期データを表示します。
-端末間で入力内容まで自動同期するには、`sync-config.js` にブラウザ対応の同期先を設定します。
+URLに共有IDは出しません。この普通のリンクを開いた端末が、Firestoreの同じ共有データを読み書きします。
 
 ## 保存と同期
 
 - データは `localStorage` に自動保存されます。
 - URLに共有IDは出しません。
-- 複数端末の自動同期をONにするには、`sync-config.js` の `window.BABY_SYNC_URL` にブラウザ対応の同期先を設定します。
+- `sync-config.js` の `window.BABY_FIREBASE_CONFIG` に Firebase Webアプリ設定を入れてあり、匿名ログインで同じFirestoreデータを同期します。
+- 同期先は `spaces/household_budget_management_forbaby/budget/state` です。
+- Firebase Authentication の匿名ログインが有効である必要があります。
 - 通信に失敗した場合は、最後に保存済みのローカルデータを表示します。
 - アプリ起動時、手動更新、画面復帰時、15秒ごとのバックグラウンド更新に対応しています。
 

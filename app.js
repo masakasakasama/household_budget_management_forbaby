@@ -1,14 +1,17 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "1.3.1";
+  const APP_VERSION = "1.4.0";
   const KEY_DATA = "baby-budget-data-v2";
   const KEY_SYNC = "baby-budget-lastsync-v2";
   const POLL_MS = 15000;
-  const SYNC_URL = String(window.OUCHI_SYNC_URL || "").replace(/\/+$/, "");
-  const FIXED_SYNC_URL = String(window.BABY_SYNC_URL || "").replace(/\/+$/, "");
-  const syncEnabled = () => Boolean(FIXED_SYNC_URL || SYNC_URL);
-  const remoteUrl = () => FIXED_SYNC_URL || `${SYNC_URL}/baby-budget.json`;
+  const FIREBASE_CONFIG = window.BABY_FIREBASE_CONFIG || {};
+  const SPACE_ID = window.BABY_SPACE_ID || "household_budget_management_forbaby";
+  const syncEnabled = () => Boolean(
+    FIREBASE_CONFIG.apiKey &&
+    FIREBASE_CONFIG.appId &&
+    FIREBASE_CONFIG.projectId
+  );
 
   const categoryOptions = [
     "groceries",
@@ -65,6 +68,10 @@
   let currentMonth = "2026-06";
   let pushTimer = null;
   let pushing = false;
+  let firestore = null;
+  let authUser = null;
+  let remoteStateRef = null;
+  let remoteApplying = false;
 
   function load() {
     try {
@@ -374,11 +381,11 @@
     const status = document.getElementById("syncStatus");
     const time = document.getElementById("syncTime");
     if (!syncEnabled()) {
-      status.textContent = "ローカル保存";
-      time.textContent = `前回更新 ${formatTime(state.updatedAt)}`;
+      status.textContent = "Firestore設定待ち";
+      time.textContent = "FirebaseのapiKey/appIdをsync-config.jsに入れると彼女の端末と同期します";
       return;
     }
-    status.textContent = "共有同期ON";
+    status.textContent = authUser ? "Firestore同期ON" : "Firestore接続中";
     const last = Number(localStorage.getItem(KEY_SYNC));
     time.textContent = last ? `前回同期 ${formatTime(last)}` : "同期準備中";
   }
@@ -390,26 +397,9 @@
   }
 
   async function pull() {
-    if (!syncEnabled()) {
-      statusIdle();
-      return;
-    }
+    if (!remoteStateRef) return statusIdle();
     document.getElementById("syncStatus").textContent = "更新確認中";
-    try {
-      const res = await fetch(remoteUrl(), { cache: "no-store" });
-      if (!res.ok) throw new Error(`GET ${res.status}`);
-      const remote = await res.json();
-      if (remote?.months && (remote.updatedAt || 0) > (state.updatedAt || 0)) {
-        state = remote;
-        localStorage.setItem(KEY_DATA, JSON.stringify(state));
-      }
-      localStorage.setItem(KEY_SYNC, String(Date.now()));
-    } catch {
-      document.getElementById("syncStatus").textContent = "オフライン";
-      document.getElementById("syncTime").textContent = `最後に成功したデータを表示中 ${formatTime(state.updatedAt)}`;
-      return;
-    }
-    render();
+    statusIdle();
   }
 
   function schedulePush() {
@@ -418,18 +408,19 @@
   }
 
   async function push() {
-    if (!syncEnabled() || pushing) return;
+    if (!remoteStateRef || pushing || remoteApplying) return;
     pushing = true;
     try {
-      const res = await fetch(remoteUrl(), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(state),
-      });
-      if (!res.ok) throw new Error(`PUT ${res.status}`);
+      const { setDoc, serverTimestamp } = await firebaseFirestoreApi();
+      await setDoc(remoteStateRef, {
+        state,
+        updatedAt: state.updatedAt || Date.now(),
+        updatedBy: authUser?.uid || "",
+        serverUpdatedAt: serverTimestamp(),
+      }, { merge: true });
       localStorage.setItem(KEY_SYNC, String(Date.now()));
     } catch {
-      document.getElementById("syncStatus").textContent = "同期失敗";
+      document.getElementById("syncStatus").textContent = "Firestore同期失敗";
     } finally {
       pushing = false;
       statusIdle();
@@ -453,6 +444,97 @@
     const link = publicShareUrl();
     const copied = await copyText(link);
     flashSave(copied ? "共有リンクをコピーしました" : link);
+  }
+
+  async function firebaseAppApi() {
+    return import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");
+  }
+
+  async function firebaseAuthApi() {
+    return import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js");
+  }
+
+  async function firebaseFirestoreApi() {
+    return import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");
+  }
+
+  async function initFirestoreSync() {
+    if (!syncEnabled()) {
+      statusIdle();
+      return;
+    }
+
+    document.getElementById("syncStatus").textContent = "Firestore接続中";
+    try {
+      const { initializeApp } = await firebaseAppApi();
+      const { getAuth, signInAnonymously } = await firebaseAuthApi();
+      const {
+        getFirestore,
+        doc,
+        getDoc,
+        setDoc,
+        updateDoc,
+        onSnapshot,
+        arrayUnion,
+        serverTimestamp,
+      } = await firebaseFirestoreApi();
+
+      const app = initializeApp(FIREBASE_CONFIG);
+      const auth = getAuth(app);
+      const credential = await signInAnonymously(auth);
+      authUser = credential.user;
+      firestore = getFirestore(app);
+
+      const spaceRef = doc(firestore, "spaces", SPACE_ID);
+      try {
+        await updateDoc(spaceRef, {
+          memberUids: arrayUnion(authUser.uid),
+          updatedAt: serverTimestamp(),
+        });
+      } catch {
+        await setDoc(spaceRef, {
+          name: "Baby家計簿",
+          memberUids: [authUser.uid],
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      }
+
+      remoteStateRef = doc(firestore, "spaces", SPACE_ID, "budget", "state");
+      const snap = await getDoc(remoteStateRef);
+      if (!snap.exists()) {
+        await setDoc(remoteStateRef, {
+          state,
+          updatedAt: state.updatedAt || Date.now(),
+          updatedBy: authUser.uid,
+          serverUpdatedAt: serverTimestamp(),
+        }, { merge: true });
+      }
+
+      onSnapshot(remoteStateRef, (remoteSnap) => {
+        const remote = remoteSnap.data()?.state;
+        if (!remote?.months) return;
+        if ((remote.updatedAt || 0) <= (state.updatedAt || 0)) {
+          statusIdle();
+          return;
+        }
+        remoteApplying = true;
+        state = remote;
+        localStorage.setItem(KEY_DATA, JSON.stringify(state));
+        localStorage.setItem(KEY_SYNC, String(Date.now()));
+        render();
+        remoteApplying = false;
+      }, () => {
+        document.getElementById("syncStatus").textContent = "Firestore接続失敗";
+        document.getElementById("syncTime").textContent = "Firestoreルール、apiKey/appId、匿名ログイン設定を確認してください";
+      });
+
+      await push();
+      statusIdle();
+    } catch (error) {
+      document.getElementById("syncStatus").textContent = "Firestore接続失敗";
+      document.getElementById("syncTime").textContent =
+        `Firestore接続失敗: ${error?.code || error?.message || "設定を確認してください"}`;
+    }
   }
 
   async function checkAppUpdate() {
@@ -499,7 +581,7 @@
     document.getElementById("shareBtn").addEventListener("click", createShareLink);
 
     render();
-    pull();
+    initFirestoreSync();
     checkAppUpdate();
     setInterval(() => {
       if (document.visibilityState === "visible") pull();
