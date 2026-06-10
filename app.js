@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "1.5.0";
+  const APP_VERSION = "1.5.1";
   const KEY_DATA = "baby-budget-data-v2";
   const KEY_SYNC = "baby-budget-lastsync-v2";
   const POLL_MS = 15000;
@@ -92,11 +92,17 @@
         const before = month.expenses.length;
         month.expenses = month.expenses
           .filter((expense) => String(expense.amount ?? "").trim() !== "")
-          .map((expense) => {
-            if (!("memo" in expense)) return expense;
-            const { memo, ...rest } = expense;
-            changed = true;
-            return rest;
+          .map((expense, index) => {
+            const clean = { ...expense };
+            if ("memo" in clean) {
+              delete clean.memo;
+              changed = true;
+            }
+            if (!Number(clean.createdAt)) {
+              clean.createdAt = index + 1;
+              changed = true;
+            }
+            return clean;
           });
         if (month.expenses.length !== before) changed = true;
       }
@@ -208,18 +214,18 @@
     const body = document.getElementById("creditBody");
     const expenses = monthData().expenses;
     body.innerHTML = "";
-    expenses.forEach((item, index) => {
+    expenses
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) =>
+        num(b.item.day) - num(a.item.day) ||
+        num(b.item.createdAt) - num(a.item.createdAt) ||
+        b.index - a.index
+      )
+      .forEach(({ item, index }) => {
       const row = document.createElement("div");
       row.className = "expense-row";
 
-      const reorder = document.createElement("div");
-      reorder.className = "expense-reorder";
-      reorder.append(
-        smallButton("▲", () => move(expenses, index, -1, renderAndTouch)),
-        smallButton("▼", () => move(expenses, index, 1, renderAndTouch))
-      );
-
-      const day = labeledInput("日", item, "day", "1", "numeric");
+      const day = labeledDaySelect("日", item);
       const category = labeledSelect("カテゴリ", item, "category");
       const amount = labeledInput("金額", item, "amount", "0", "numeric amount-cell");
       const del = deleteButton(() => {
@@ -227,7 +233,7 @@
         renderAndTouch();
       });
 
-      row.append(reorder, day, category, amount, del);
+      row.append(day, category, amount, del);
       body.appendChild(row);
     });
   }
@@ -241,6 +247,7 @@
     document.getElementById("monthPicker").value = currentMonth;
 
     renderLineList("fixed", data.budgets, "fixedList", renderAndTouch);
+    renderQuickAdd();
     renderExpenses();
     renderCategoryChart();
 
@@ -371,6 +378,66 @@
     });
     td.appendChild(input);
     return td;
+  }
+
+  function daysInCurrentMonth() {
+    const [year, month] = currentMonth.split("-").map(Number);
+    return new Date(year, month, 0).getDate();
+  }
+
+  function defaultExpenseDay() {
+    const now = new Date();
+    const [year, month] = currentMonth.split("-").map(Number);
+    if (now.getFullYear() === year && now.getMonth() + 1 === month) {
+      return Math.min(now.getDate(), daysInCurrentMonth());
+    }
+    return daysInCurrentMonth();
+  }
+
+  function fillDaySelect(select, selectedValue) {
+    const selected = Number(selectedValue) || defaultExpenseDay();
+    select.innerHTML = "";
+    for (let day = 1; day <= daysInCurrentMonth(); day += 1) {
+      const option = document.createElement("option");
+      option.value = String(day);
+      option.textContent = String(day);
+      select.appendChild(option);
+    }
+    select.value = String(Math.min(Math.max(selected, 1), daysInCurrentMonth()));
+  }
+
+  function fillCategorySelect(select, selectedValue) {
+    select.innerHTML = "";
+    categoryOptions.forEach((name) => {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      select.appendChild(option);
+    });
+    select.value = selectedValue || categoryOptions[0];
+  }
+
+  function renderQuickAdd() {
+    const day = document.getElementById("quickDay");
+    const category = document.getElementById("quickCategory");
+    if (!day || !category) return;
+    fillDaySelect(day, day.value || defaultExpenseDay());
+    fillCategorySelect(category, category.value || categoryOptions[0]);
+  }
+
+  function labeledDaySelect(label, item) {
+    const wrap = document.createElement("label");
+    wrap.className = "expense-field expense-day";
+    const caption = document.createElement("span");
+    caption.textContent = label;
+    const select = document.createElement("select");
+    fillDaySelect(select, item.day);
+    select.addEventListener("change", () => {
+      item.day = Number(select.value);
+      renderAndTouch();
+    });
+    wrap.append(caption, select);
+    return wrap;
   }
 
   function labeledInput(label, item, key, placeholder, mode = "") {
@@ -626,11 +693,25 @@
       button.addEventListener("click", () => {
         const data = monthData();
         if (button.dataset.target === "fixed") data.budgets.push({ name: "", amount: "" });
-        if (button.dataset.target === "credit") {
-          data.expenses.push({ day: 10, category: "groceries", amount: 0 });
-        }
         renderAndTouch();
       });
+    });
+
+    document.getElementById("quickAddForm")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const day = document.getElementById("quickDay");
+      const category = document.getElementById("quickCategory");
+      const amount = document.getElementById("quickAmount");
+      if (!String(amount.value ?? "").trim()) return;
+      monthData().expenses.push({
+        day: Number(day.value) || defaultExpenseDay(),
+        category: category.value || categoryOptions[0],
+        amount: num(amount.value),
+        createdAt: Date.now(),
+      });
+      amount.value = "";
+      renderAndTouch();
+      amount.focus();
     });
 
     document.getElementById("prevMonth").addEventListener("click", () => shiftMonth(-1));

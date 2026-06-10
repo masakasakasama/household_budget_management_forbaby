@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=1.5.0" />
+  <link rel="stylesheet" href="style.css?v=1.5.1" />
 </head>
 <body>
   <div class="app">
@@ -55,6 +55,28 @@
         <span class="hl-value" id="hlBalance">¥0</span>
         <span class="hl-note" id="balanceNote">上限までの残り</span>
       </div>
+    </section>
+
+    <section class="card quick-add-card">
+      <div class="card-head">
+        <span class="card-emoji">+</span>
+        <h2>支出を追加</h2>
+      </div>
+      <form class="quick-add" id="quickAddForm">
+        <label>
+          <span>日</span>
+          <select id="quickDay"></select>
+        </label>
+        <label>
+          <span>カテゴリ</span>
+          <select id="quickCategory"></select>
+        </label>
+        <label>
+          <span>金額</span>
+          <input id="quickAmount" type="number" inputmode="numeric" min="0" placeholder="0" />
+        </label>
+        <button type="submit">追加</button>
+      </form>
     </section>
 
     <div class="columns">
@@ -105,7 +127,6 @@
             <h2>すでに使ったやつ</h2>
           </div>
           <div class="expense-list" id="creditBody"></div>
-          <button class="add-line" data-target="credit">＋支出を追加</button>
           <div class="subtotal">
             <span>使用済み合計</span>
             <span id="creditTotal">¥0</span>
@@ -120,7 +141,7 @@
     </footer>
   </div>
 
-  <script src="sync-config.js?v=1.5.0"></script>
-  <script src="app.js?v=1.5.0"></script>
+  <script src="sync-config.js?v=1.5.1"></script>
+  <script src="app.js?v=1.5.1"></script>
 </body>
 </html>

@@ -295,10 +295,60 @@ body {
 .card-credit::before { background: var(--lavender); }
 .card-special::before { background: var(--peach); }
 .card-piggy::before { background: var(--pink); }
+.quick-add-card::before { background: var(--pink-deep); }
 
 .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .card-head h2 { margin: 0; font-size: 16px; font-weight: 800; }
 .card-emoji { font-size: 20px; }
+
+.quick-add-card { margin-bottom: 16px; }
+.quick-add {
+  display: grid;
+  grid-template-columns: minmax(62px, .55fr) minmax(130px, 1.2fr) minmax(110px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+.quick-add label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.quick-add span {
+  padding-left: 3px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 800;
+}
+.quick-add input,
+.quick-add select {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: var(--cream);
+  border-radius: 13px;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 10px 11px;
+}
+.quick-add input { text-align: right; }
+.quick-add input:focus,
+.quick-add select:focus { outline: 2px solid var(--pink); }
+.quick-add button {
+  border: none;
+  background: var(--pink-deep);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  border-radius: 14px;
+  padding: 11px 18px;
+  cursor: pointer;
+  box-shadow: 0 5px 12px rgba(255, 143, 171, .24);
+}
+.quick-add button:hover { filter: brightness(1.04); }
 
 /* ---------- 明細行 ---------- */
 .line-list { display: flex; flex-direction: column; gap: 7px; }
@@ -451,7 +501,7 @@ body {
 }
 .expense-row {
   display: grid;
-  grid-template-columns: auto minmax(48px, .55fr) minmax(110px, 1.2fr) minmax(88px, .8fr) auto;
+  grid-template-columns: minmax(54px, .55fr) minmax(120px, 1.25fr) minmax(92px, .85fr) auto;
   align-items: end;
   gap: 7px;
   background: var(--cream);
@@ -613,12 +663,23 @@ body {
   .card { padding: 13px 12px; border-radius: 18px; }
   .card-head h2 { font-size: 15px; }
   .saving-box strong { font-size: 21px; }
+  .quick-add-card { margin-bottom: 12px; }
+  .quick-add {
+    grid-template-columns: minmax(52px, .55fr) minmax(112px, 1.25fr) minmax(88px, .85fr);
+    gap: 6px;
+  }
+  .quick-add button {
+    grid-column: 1 / -1;
+    padding: 10px;
+  }
 
   /* 入力欄は16pxにして、iOSのフォーカス時ズームを防ぐ */
   .line-name,
   .line-amount,
   .expense-field input,
   .expense-field select,
+  .quick-add input,
+  .quick-add select,
   .data-table td input,
   .memo-area,
   .copy-input { font-size: 16px; }
@@ -640,7 +701,7 @@ body {
   .month-cloud { font-size: 16px; padding: 7px 20px; }
 
   .expense-row {
-    grid-template-columns: auto minmax(42px, .5fr) minmax(108px, 1.25fr) minmax(84px, .8fr) auto;
+    grid-template-columns: minmax(48px, .5fr) minmax(112px, 1.25fr) minmax(78px, .8fr) auto;
     gap: 5px;
     padding: 7px;
   }
