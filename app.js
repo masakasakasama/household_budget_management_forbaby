@@ -1,12 +1,14 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "1.3.0";
+  const APP_VERSION = "1.3.1";
   const KEY_DATA = "baby-budget-data-v2";
   const KEY_SYNC = "baby-budget-lastsync-v2";
   const POLL_MS = 15000;
   const SYNC_URL = String(window.OUCHI_SYNC_URL || "").replace(/\/+$/, "");
-  const remoteUrl = () => `${SYNC_URL}/baby-budget.json`;
+  const FIXED_SYNC_URL = String(window.BABY_SYNC_URL || "").replace(/\/+$/, "");
+  const syncEnabled = () => Boolean(FIXED_SYNC_URL || SYNC_URL);
+  const remoteUrl = () => FIXED_SYNC_URL || `${SYNC_URL}/baby-budget.json`;
 
   const categoryOptions = [
     "groceries",
@@ -54,7 +56,7 @@
   function initialState() {
     return {
       version: APP_VERSION,
-      updatedAt: Date.now(),
+      updatedAt: 0,
       months: { "2026-06": seedMonth() },
     };
   }
@@ -102,7 +104,7 @@
     state.updatedAt = Date.now();
     localStorage.setItem(KEY_DATA, JSON.stringify(state));
     flashSave("保存しました");
-    if (SYNC_URL) schedulePush();
+    if (syncEnabled()) schedulePush();
   }
 
   function persistAndRefreshTotals() {
@@ -371,12 +373,12 @@
   function statusIdle() {
     const status = document.getElementById("syncStatus");
     const time = document.getElementById("syncTime");
-    if (!SYNC_URL) {
+    if (!syncEnabled()) {
       status.textContent = "ローカル保存";
       time.textContent = `前回更新 ${formatTime(state.updatedAt)}`;
       return;
     }
-    status.textContent = "同期ON";
+    status.textContent = "共有同期ON";
     const last = Number(localStorage.getItem(KEY_SYNC));
     time.textContent = last ? `前回同期 ${formatTime(last)}` : "同期準備中";
   }
@@ -388,7 +390,7 @@
   }
 
   async function pull() {
-    if (!SYNC_URL) {
+    if (!syncEnabled()) {
       statusIdle();
       return;
     }
@@ -416,7 +418,7 @@
   }
 
   async function push() {
-    if (!SYNC_URL || pushing) return;
+    if (!syncEnabled() || pushing) return;
     pushing = true;
     try {
       const res = await fetch(remoteUrl(), {
@@ -432,6 +434,25 @@
       pushing = false;
       statusIdle();
     }
+  }
+
+  function publicShareUrl() {
+    return "https://masakasakasama.github.io/household_budget_management_forbaby/";
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function createShareLink() {
+    const link = publicShareUrl();
+    const copied = await copyText(link);
+    flashSave(copied ? "共有リンクをコピーしました" : link);
   }
 
   async function checkAppUpdate() {
@@ -475,6 +496,7 @@
       renderAndTouch();
     });
     document.getElementById("refreshBtn").addEventListener("click", pull);
+    document.getElementById("shareBtn").addEventListener("click", createShareLink);
 
     render();
     pull();

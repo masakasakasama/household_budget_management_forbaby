@@ -36,10 +36,20 @@ python -m http.server 8000
 
 その後、`http://localhost:8000` を開いてください。
 
+## 彼女と共有するリンク
+
+このリンクをそのまま共有してください。
+
+https://masakasakasama.github.io/household_budget_management_forbaby/
+
+URLに共有IDは出しません。この普通のリンクを開けば、どの端末でも同じ6月初期データを表示します。
+端末間で入力内容まで自動同期するには、`sync-config.js` にブラウザ対応の同期先を設定します。
+
 ## 保存と同期
 
 - データは `localStorage` に自動保存されます。
-- `sync-config.js` の `window.OUCHI_SYNC_URL` に Firebase Realtime Database URL を設定すると、同じリンクを開いた端末で同じデータを同期できます。
+- URLに共有IDは出しません。
+- 複数端末の自動同期をONにするには、`sync-config.js` の `window.BABY_SYNC_URL` にブラウザ対応の同期先を設定します。
 - 通信に失敗した場合は、最後に保存済みのローカルデータを表示します。
 - アプリ起動時、手動更新、画面復帰時、15秒ごとのバックグラウンド更新に対応しています。
 
