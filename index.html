@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <!-- HTMLをキャッシュさせない（再読み込みだけで常に最新が出るように） -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -12,20 +11,19 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="おうちの家計簿" />
-  <title>おうちの家計簿 🐻💕</title>
+  <meta name="apple-mobile-web-app-title" content="Baby家計簿" />
+  <title>Baby家計簿</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=1.2.0" />
+  <link rel="stylesheet" href="style.css?v=1.3.0" />
 </head>
 <body>
   <div class="app">
-    <!-- ヘッダー -->
     <header class="app-header">
-      <div class="mascot-strip" aria-hidden="true">🐻 🐰 🐥 🐱 🐶</div>
-      <h1 class="app-title">おうちの家計簿</h1>
-      <p class="app-subtitle">おかいものも ちょきんも、にこにこ管理 ✨</p>
+      <div class="mascot-strip" aria-hidden="true">🍼 🧸 ⭐ 🌙 💕</div>
+      <h1 class="app-title">Baby家計簿</h1>
+      <p class="app-subtitle">6月の上限と、すでに使った金額をかわいく管理</p>
 
       <div class="month-bar">
         <button class="month-nav" id="prevMonth" aria-label="前の月">‹</button>
@@ -36,157 +34,117 @@
         <button class="month-nav" id="nextMonth" aria-label="次の月">›</button>
       </div>
 
-      <!-- 同期バー（同じリンクで全端末・常時同期） -->
       <div class="sync-bar">
-        <span class="sync-status" id="syncStatus" title="同期の状態">🔄 同期</span>
+        <span class="sync-status" id="syncStatus" title="同期の状態">ローカル保存</span>
         <div class="sync-actions">
-          <button class="sync-btn sync-btn-main" id="refreshBtn" title="今すぐ最新に更新">🔄 今すぐ更新</button>
+          <button class="sync-btn sync-btn-main" id="refreshBtn" title="最新データを確認">今すぐ更新</button>
         </div>
         <span class="sync-time" id="syncTime"></span>
       </div>
     </header>
 
-    <!-- ハイライト（残高など） -->
     <section class="highlight-row">
       <div class="hl-card hl-income">
-        <span class="hl-emoji">🐷</span>
-        <span class="hl-label">収入合計</span>
+        <span class="hl-emoji">💰</span>
+        <span class="hl-label">毎月使う上限</span>
         <span class="hl-value" id="hlIncome">¥0</span>
       </div>
       <div class="hl-card hl-expense">
-        <span class="hl-emoji">🛒</span>
-        <span class="hl-label">支出合計</span>
+        <span class="hl-emoji">🧾</span>
+        <span class="hl-label">すでに使った金額</span>
         <span class="hl-value" id="hlExpense">¥0</span>
       </div>
       <div class="hl-card hl-balance">
-        <span class="hl-emoji">💰</span>
-        <span class="hl-label">今月の残高</span>
+        <span class="hl-emoji">🌱</span>
+        <span class="hl-label">今月の残り</span>
         <span class="hl-value" id="hlBalance">¥0</span>
-        <span class="hl-note">来月へのくりこし</span>
+        <span class="hl-note" id="balanceNote">上限までの残り</span>
       </div>
     </section>
 
     <div class="columns">
-      <!-- 左カラム -->
       <div class="col">
-        <!-- 収入 -->
         <section class="card card-income">
           <div class="card-head">
-            <span class="card-emoji">🌸</span>
-            <h2>収入</h2>
+            <span class="card-emoji">🎀</span>
+            <h2>毎月使う上限</h2>
           </div>
           <div class="line-list" id="incomeList"></div>
-          <button class="add-line" data-target="income">＋ 収入をふやす</button>
+          <button class="add-line" data-target="income">＋上限を追加</button>
           <div class="subtotal">
-            <span>収入合計 ①</span>
+            <span>上限合計</span>
             <span id="incomeTotal">¥0</span>
           </div>
         </section>
 
-        <!-- 固定費 -->
         <section class="card card-fixed">
           <div class="card-head">
             <span class="card-emoji">🏠</span>
-            <h2>固定費・支出</h2>
+            <h2>カテゴリ上限</h2>
           </div>
           <div class="line-list" id="fixedList"></div>
-          <button class="add-line" data-target="fixed">＋ 固定費をふやす</button>
+          <button class="add-line" data-target="fixed">＋カテゴリ上限を追加</button>
           <div class="subtotal">
-            <span>支出合計 ②</span>
+            <span>カテゴリ上限合計</span>
             <span id="fixedTotal">¥0</span>
           </div>
         </section>
 
-        <!-- 生活費 -->
-        <section class="card card-living">
-          <div class="card-head">
-            <span class="card-emoji">🍓</span>
-            <h2>生活費</h2>
-          </div>
-          <div class="line-list" id="livingList"></div>
-          <button class="add-line" data-target="living">＋ 生活費をふやす</button>
-          <div class="subtotal">
-            <span>生活費合計 ③</span>
-            <span id="livingTotal">¥0</span>
-          </div>
-        </section>
-
-        <!-- メモ -->
         <section class="card card-memo">
           <div class="card-head">
             <span class="card-emoji">📝</span>
             <h2>memo</h2>
           </div>
-          <textarea id="memo" class="memo-area" placeholder="今月のひとことメモ…  例）来月は旅行の積立をはじめる！"></textarea>
+          <textarea id="memo" class="memo-area" placeholder="6月のメモを書く"></textarea>
         </section>
       </div>
 
-      <!-- 右カラム -->
       <div class="col">
-        <!-- クレジットカード -->
         <section class="card card-credit">
           <div class="card-head">
-            <span class="card-emoji">💳</span>
-            <h2>今月のクレジットカード利用控え</h2>
+            <span class="card-emoji">🧺</span>
+            <h2>すでに使ったやつ</h2>
           </div>
           <div class="table-wrap">
             <table class="data-table" id="creditTable">
               <thead>
                 <tr>
                   <th></th>
-                  <th>月/日</th>
-                  <th>品名</th>
-                  <th>購入先</th>
+                  <th>6月</th>
+                  <th>カテゴリ</th>
+                  <th>メモ</th>
                   <th class="num">金額</th>
-                  <th>カード名</th>
-                  <th class="check">済</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody id="creditBody"></tbody>
             </table>
           </div>
-          <button class="add-line" data-target="credit">＋ カード利用をふやす</button>
+          <button class="add-line" data-target="credit">＋支出を追加</button>
           <div class="subtotal">
-            <span>カード利用合計</span>
+            <span>使用済み合計</span>
             <span id="creditTotal">¥0</span>
           </div>
         </section>
 
-        <!-- 特別支出 -->
-        <section class="card card-special">
+        <section class="card card-living">
           <div class="card-head">
-            <span class="card-emoji">🎁</span>
-            <h2>今月の特別支出</h2>
+            <span class="card-emoji">📅</span>
+            <h2>日別まとめ</h2>
           </div>
-          <div class="table-wrap">
-            <table class="data-table" id="specialTable">
-              <thead>
-                <tr>
-                  <th></th>
-                  <th>月/日</th>
-                  <th>内容</th>
-                  <th class="num">金額</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="specialBody"></tbody>
-            </table>
-          </div>
-          <button class="add-line" data-target="special">＋ 特別支出をふやす</button>
+          <div class="line-list" id="livingList"></div>
           <div class="subtotal">
-            <span>特別支出合計</span>
-            <span id="specialTotal">¥0</span>
+            <span>画像2の合計</span>
+            <span id="livingTotal">¥0</span>
           </div>
         </section>
 
-        <!-- 貯金ぶたメーター -->
         <section class="card card-piggy">
           <div class="card-head">
-            <span class="card-emoji">🐽</span>
-            <h2>今月の貯金ぶた</h2>
+            <span class="card-emoji">🐷</span>
+            <h2>今月のペース</h2>
           </div>
-          <p class="piggy-msg" id="piggyMsg">数字を入力すると、ぶたさんがコメントするよ！</p>
+          <p class="piggy-msg" id="piggyMsg">読み込み中...</p>
           <div class="piggy-meter">
             <div class="piggy-fill" id="piggyFill"></div>
           </div>
@@ -196,12 +154,12 @@
     </div>
 
     <footer class="app-footer">
-      <button class="footer-btn" id="resetMonth">🧹 今月をリセット</button>
-      <span class="save-hint" id="saveHint">じどうで保存されるよ 💾</span>
+      <button class="footer-btn" id="resetMonth">6月の画像データに戻す</button>
+      <span class="save-hint" id="saveHint">自動で保存されます</span>
     </footer>
   </div>
 
-  <script src="sync-config.js?v=1.2.0"></script>
-  <script src="app.js?v=1.2.0"></script>
+  <script src="sync-config.js?v=1.3.0"></script>
+  <script src="app.js?v=1.3.0"></script>
 </body>
 </html>
