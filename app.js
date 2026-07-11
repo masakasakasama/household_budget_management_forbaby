@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "2.1.1";
+  const APP_VERSION = "2.2.0";
   const SCHEMA_VERSION = 2;
   const KEY_DATA = "baby-budget-data-v2";
   const KEY_BACKUPS = "baby-budget-backups-v2";
@@ -812,31 +812,41 @@
     const budgetTotal = sum(month.budgets);
     const salary = num(month.salary);
     const spent = sum(spentExpenses());
-    const planned = remainingBudgetPlan();
-    const committed = spent + planned;
-    const remaining = salary - committed;
+    const registeredPlanned = sum(plannedExpenses());
+    const budgetRemaining = remainingBudgetPlan();
+    const projectedTotal = spent + budgetRemaining;
+    const remaining = salary - projectedTotal;
     document.getElementById("fixedTotal").textContent = yen(budgetTotal);
-    document.getElementById("creditTotal").textContent = yen(committed);
+    document.getElementById("creditTotal").textContent = yen(spent + registeredPlanned);
     document.getElementById("salaryInput").value = salary ? salary.toLocaleString("ja-JP") : "";
     document.getElementById("hlExpense").textContent = yen(spent);
-    document.getElementById("hlPlanned").textContent = yen(planned);
+    document.getElementById("hlPlanned").textContent = yen(budgetTotal);
     const balance = document.getElementById("hlBalance");
     balance.textContent = salary > 0 ? yen(remaining) : "未入力";
     balance.style.color = salary > 0 && remaining < 0 ? "#e5556e" : "var(--ink)";
-    document.getElementById("balanceNote").textContent = month.locked ? "この月は締め済み" : "給料 − 使用済み − 使用予定";
-    renderPiggy(salary, committed, remaining);
+    document.getElementById("balanceNote").textContent = month.locked ? "この月は締め済み" : "予算確保後";
+    renderPiggy(salary, budgetTotal, spent, budgetRemaining, remaining);
     renderBudgetAlert();
   }
 
-  function renderPiggy(salary, committed, remaining) {
-    const pct = salary > 0 ? Math.max(0, Math.round((committed / salary) * 100)) : 0;
-    document.getElementById("piggyFill").style.width = `${Math.min(100, pct)}%`;
-    document.getElementById("piggyRate").textContent = salary > 0 ? `給料の${pct}%を使用・予定` : "給料を入力してください";
+  function renderPiggy(salary, budgetTotal, spent, budgetRemaining, remaining) {
+    const usedPct = budgetTotal > 0 ? Math.max(0, Math.round((spent / budgetTotal) * 100)) : 0;
+    const projectedTotal = spent + budgetRemaining;
+    const scale = Math.max(1, salary, projectedTotal);
+    document.getElementById("piggySpent").style.width = `${Math.min(100, (spent / scale) * 100)}%`;
+    document.getElementById("piggyBudgetLeft").style.width = `${Math.min(100, (budgetRemaining / scale) * 100)}%`;
+    document.getElementById("piggySalaryLeft").style.width = `${Math.min(100, (Math.max(0, remaining) / scale) * 100)}%`;
+    document.getElementById("piggySpentValue").textContent = yen(spent);
+    document.getElementById("piggyBudgetValue").textContent = yen(budgetRemaining);
+    document.getElementById("piggySalaryValue").textContent = salary > 0 ? yen(remaining) : "未入力";
+    document.getElementById("piggyRate").textContent = budgetTotal > 0
+      ? `使う予定 ${yen(budgetTotal)} のうち ${usedPct}%使用`
+      : "カテゴリ上限を入力してください";
     const msg = document.getElementById("piggyMsg");
     if (salary <= 0) msg.textContent = "給料を入力すると、最終的に残る金額がわかります。";
-    else if (remaining < 0) msg.textContent = "給料を超えています。支出と予定を確認しよう。";
-    else if (pct < 25) msg.textContent = "かなり良いペース。残せた分は貯金に回せそう。";
-    else if (pct < 70) msg.textContent = "まだ大丈夫。カテゴリ別の残りを見ながら使おう。";
+    else if (remaining < 0) msg.textContent = "使う予定が給料を超えています。カテゴリ上限を確認しよう。";
+    else if (usedPct < 25) msg.textContent = "予算にはまだ余裕があります。";
+    else if (usedPct < 70) msg.textContent = "カテゴリ別の残りを見ながら使おう。";
     else msg.textContent = "残りが少なめ。必要な支出を優先しよう。";
 
     const today = new Date();
@@ -845,7 +855,7 @@
       ? Math.max(1, daysInMonth(currentMonth) - today.getDate() + 1)
       : daysInMonth(currentMonth);
     document.getElementById("daysRemaining").textContent = `${remainingDays}日`;
-    document.getElementById("dailyAllowance").textContent = salary > 0 ? yen(Math.max(0, remaining) / remainingDays) : "--";
+    document.getElementById("dailyAllowance").textContent = budgetTotal > 0 ? yen(budgetRemaining / remainingDays) : "--";
 
     const goal = num(monthData().savingGoal);
     const saved = salary > 0 ? Math.max(0, remaining) : 0;

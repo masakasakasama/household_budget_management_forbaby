@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=2.1.1" />
+  <link rel="stylesheet" href="style.css?v=2.2.0" />
 </head>
 <body>
   <div class="app">
@@ -52,12 +52,13 @@
         <span class="hl-emoji">🗓️</span>
         <span class="hl-label">使う予定</span>
         <span class="hl-value" id="hlPlanned">¥0</span>
+        <span class="hl-note">カテゴリ上限の合計</span>
       </div>
       <div class="hl-card hl-balance">
         <span class="hl-emoji">🐷</span>
         <span class="hl-label">最終的に残る</span>
         <span class="hl-value" id="hlBalance">¥0</span>
-        <span class="hl-note" id="balanceNote">給料 − 使用済み − 使用予定</span>
+        <span class="hl-note" id="balanceNote">予算確保後</span>
       </div>
     </section>
 
@@ -101,7 +102,16 @@
           <button class="soft-btn" id="monthLockButton" type="button">月を締める</button>
         </div>
         <p class="piggy-msg" id="piggyMsg">読み込み中...</p>
-        <div class="piggy-meter"><div class="piggy-fill" id="piggyFill"></div></div>
+        <div class="piggy-meter" aria-label="給与の内訳">
+          <span class="piggy-segment piggy-spent" id="piggySpent"></span>
+          <span class="piggy-segment piggy-budget-left" id="piggyBudgetLeft"></span>
+          <span class="piggy-segment piggy-salary-left" id="piggySalaryLeft"></span>
+        </div>
+        <div class="piggy-legend">
+          <span><i class="legend-spent"></i>使用済み <strong id="piggySpentValue">¥0</strong></span>
+          <span><i class="legend-budget"></i>予算残り <strong id="piggyBudgetValue">¥0</strong></span>
+          <span><i class="legend-salary"></i>給与残り <strong id="piggySalaryValue">¥0</strong></span>
+        </div>
         <p class="piggy-rate" id="piggyRate"></p>
         <div class="pace-grid">
           <div><span>1日あたり使える額</span><strong id="dailyAllowance">¥0</strong></div>
@@ -216,7 +226,7 @@
 
   <div class="undo-toast" id="undoToast" hidden><span id="undoMessage">削除しました</span><button id="undoButton" type="button">元に戻す</button></div>
 
-  <script src="sync-config.js?v=2.1.1"></script>
-  <script src="app.js?v=2.1.1"></script>
+  <script src="sync-config.js?v=2.2.0"></script>
+  <script src="app.js?v=2.2.0"></script>
 </body>
 </html>
