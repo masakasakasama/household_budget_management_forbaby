@@ -4,8 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
   <meta name="theme-color" content="#ffd1dc" />
   <meta name="format-detection" content="telephone=no" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -13,28 +11,29 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Baby家計簿" />
   <title>Baby家計簿</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=1.5.2" />
+  <link rel="stylesheet" href="style.css?v=2.0.0" />
 </head>
 <body>
   <div class="app">
     <header class="app-header">
-      <div class="mascot-strip" aria-hidden="true">🍼 🧸 ⭐ 🌙 💕</div>
+      <div class="mascot-strip" aria-hidden="true">🍼 🧸 𓂃𓈒𓏸 🐣 🌷</div>
       <h1 class="app-title">Baby家計簿</h1>
       <p class="app-subtitle">使った分と残せる分がすぐ見える家計簿</p>
 
       <div class="month-bar">
-        <button class="month-nav" id="prevMonth" aria-label="前の月">‹</button>
+        <button class="month-nav" id="prevMonth" type="button" aria-label="前の月">‹</button>
         <div class="month-display">
           <input type="month" id="monthPicker" class="month-picker" />
-          <span class="month-cloud" id="monthLabel">2026年6月</span>
+          <span class="month-cloud" id="monthLabel"></span>
         </div>
-        <button class="month-nav" id="nextMonth" aria-label="次の月">›</button>
+        <button class="month-nav" id="nextMonth" type="button" aria-label="次の月">›</button>
       </div>
 
-      <span class="sync-status app-hidden" id="syncStatus" title="同期の状態">接続中</span>
+      <span class="sync-status app-hidden" id="syncStatus"></span>
       <span class="sync-time app-hidden" id="syncTime"></span>
     </header>
 
@@ -50,98 +49,163 @@
         <span class="hl-value" id="hlExpense">¥0</span>
       </div>
       <div class="hl-card hl-balance">
-        <span class="hl-emoji">🌱</span>
+        <span class="hl-emoji">🐷</span>
         <span class="hl-label">今月の残り</span>
         <span class="hl-value" id="hlBalance">¥0</span>
-        <span class="hl-note" id="balanceNote">上限までの残り</span>
+        <span class="hl-note" id="balanceNote">カテゴリ上限から自動計算</span>
       </div>
     </section>
 
+    <div class="budget-alert" id="budgetAlert" hidden></div>
+
     <section class="card quick-add-card">
-      <div class="card-head">
-        <span class="card-emoji">+</span>
-        <h2>支出を追加</h2>
+      <div class="card-head card-head-between">
+        <div class="card-title-row">
+          <span class="card-emoji">＋</span>
+          <h2>支出を追加</h2>
+        </div>
+        <button class="icon-text-btn" id="receiptButton" type="button" title="レシートを読み取る">📷 レシート</button>
       </div>
       <form class="quick-add" id="quickAddForm">
-        <label>
-          <span>日</span>
-          <select id="quickDay"></select>
+        <label class="quick-amount">
+          <span>金額</span>
+          <input id="quickAmount" type="number" inputmode="numeric" min="0" placeholder="0" required />
         </label>
         <label>
           <span>カテゴリ</span>
           <select id="quickCategory"></select>
         </label>
         <label>
-          <span>金額</span>
-          <input id="quickAmount" type="number" inputmode="numeric" min="0" placeholder="0" />
+          <span>日</span>
+          <select id="quickDay"></select>
         </label>
         <button type="submit">追加</button>
       </form>
+      <input id="receiptInput" type="file" accept="image/*" capture="environment" hidden />
+      <p class="inline-status" id="receiptStatus" hidden></p>
     </section>
 
-    <div class="columns">
-      <div class="col">
-        <section class="card card-piggy">
-          <div class="card-head">
-            <span class="card-emoji">🐷</span>
-            <h2>今月のペース</h2>
-          </div>
-          <p class="piggy-msg" id="piggyMsg">読み込み中...</p>
-          <div class="piggy-meter">
-            <div class="piggy-fill" id="piggyFill"></div>
-          </div>
-          <p class="piggy-rate" id="piggyRate"></p>
-          <div class="saving-box">
-            <span>残せる予定</span>
-            <strong id="savingTarget">¥0</strong>
-          </div>
-        </section>
+    <main class="dashboard-grid">
+      <section class="card card-piggy dashboard-pace">
+        <div class="card-head card-head-between">
+          <div class="card-title-row"><span class="card-emoji">🐖</span><h2>今月のペース</h2></div>
+          <button class="soft-btn" id="monthLockButton" type="button">月を締める</button>
+        </div>
+        <p class="piggy-msg" id="piggyMsg">読み込み中...</p>
+        <div class="piggy-meter"><div class="piggy-fill" id="piggyFill"></div></div>
+        <p class="piggy-rate" id="piggyRate"></p>
+        <div class="pace-grid">
+          <div><span>1日あたり使える額</span><strong id="dailyAllowance">¥0</strong></div>
+          <div><span>残り日数</span><strong id="daysRemaining">0日</strong></div>
+        </div>
+        <label class="goal-control">
+          <span>今月の貯金目標</span>
+          <span class="money-input"><span>¥</span><input id="savingGoalInput" type="number" inputmode="numeric" min="0" placeholder="0" /></span>
+        </label>
+        <div class="goal-progress"><span id="goalProgressFill"></span></div>
+        <p class="goal-note" id="goalNote"></p>
+      </section>
 
-        <section class="card card-fixed">
-          <div class="card-head">
-            <span class="card-emoji">🏠</span>
-            <h2>カテゴリ上限</h2>
-          </div>
-          <div class="line-list" id="fixedList"></div>
-          <button class="add-line" data-target="fixed">＋カテゴリ上限を追加</button>
-          <div class="subtotal">
-            <span>カテゴリ上限合計</span>
-            <span id="fixedTotal">¥0</span>
-          </div>
-        </section>
+      <section class="card card-credit dashboard-expenses">
+        <div class="card-head card-head-between">
+          <div class="card-title-row"><span class="card-emoji">🧺</span><h2>支出履歴</h2></div>
+          <span class="count-badge" id="expenseCount">0件</span>
+        </div>
+        <div class="expense-filters">
+          <input id="expenseSearch" type="search" placeholder="支出を検索" aria-label="支出を検索" />
+          <select id="expenseCategoryFilter" aria-label="カテゴリで絞り込み"><option value="">すべて</option></select>
+          <select id="expenseDayFilter" aria-label="日で絞り込み"><option value="">全日</option></select>
+        </div>
+        <div class="expense-list" id="creditBody"></div>
+        <p class="empty-state" id="expenseEmpty" hidden>この条件の支出はありません</p>
+        <div class="subtotal"><span>使用済み合計</span><span id="creditTotal">¥0</span></div>
+      </section>
 
-        <section class="card card-special">
-          <div class="card-head">
-            <span class="card-emoji">🍰</span>
-            <h2>カテゴリ別の使い方</h2>
-          </div>
-          <div class="category-chart" id="categoryChart"></div>
-        </section>
+      <section class="card card-fixed dashboard-budgets">
+        <div class="card-head card-head-between">
+          <div class="card-title-row"><span class="card-emoji">🏠</span><h2>カテゴリ上限</h2></div>
+          <button class="soft-btn" id="copyBudgetsButton" type="button">前月からコピー</button>
+        </div>
+        <div class="line-list" id="fixedList"></div>
+        <button class="add-line" data-target="fixed" type="button">＋カテゴリ上限を追加</button>
+        <div class="subtotal"><span>カテゴリ上限合計</span><span id="fixedTotal">¥0</span></div>
+      </section>
 
-      </div>
+      <section class="card card-calendar dashboard-calendar">
+        <div class="card-head"><span class="card-emoji">📅</span><h2>日別カレンダー</h2></div>
+        <div class="calendar-weekdays" aria-hidden="true"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>
+        <div class="budget-calendar" id="budgetCalendar"></div>
+        <div class="calendar-summary"><span>支出なし <strong id="noSpendDays">0日</strong></span><span>1日平均 <strong id="dailyAverage">¥0</strong></span></div>
+      </section>
 
-      <div class="col">
-        <section class="card card-credit">
-          <div class="card-head">
-            <span class="card-emoji">🧺</span>
-            <h2>すでに使ったやつ</h2>
-          </div>
-          <div class="expense-list" id="creditBody"></div>
-          <div class="subtotal">
-            <span>使用済み合計</span>
-            <span id="creditTotal">¥0</span>
-          </div>
-        </section>
+      <section class="card card-special dashboard-categories">
+        <div class="card-head"><span class="card-emoji">🎨</span><h2>カテゴリ別の使い方</h2></div>
+        <div class="category-chart" id="categoryChart"></div>
+      </section>
 
-      </div>
-    </div>
+      <section class="card card-analysis dashboard-analysis">
+        <div class="card-head card-head-between">
+          <div class="card-title-row"><span class="card-emoji">📊</span><h2>ふりかえり</h2></div>
+          <select id="analysisYear" class="compact-select" aria-label="分析する年"></select>
+        </div>
+        <h3 class="mini-heading">月ごとの支出</h3>
+        <div class="trend-chart" id="monthlyTrend"></div>
+        <h3 class="mini-heading">年間カテゴリ合計</h3>
+        <div class="annual-categories" id="annualCategories"></div>
+      </section>
 
-    <footer class="app-footer">
-      <span class="save-hint" id="saveHint">自動で保存されます</span>
-    </footer>
+      <section class="card card-recurring dashboard-recurring">
+        <div class="card-head"><span class="card-emoji">🔁</span><h2>毎月の固定費</h2></div>
+        <form class="recurring-form" id="recurringForm">
+          <label><span>日</span><select id="recurringDay"></select></label>
+          <label><span>カテゴリ</span><select id="recurringCategory"></select></label>
+          <label><span>金額</span><input id="recurringAmount" type="number" inputmode="numeric" min="0" placeholder="0" required /></label>
+          <label class="recurring-note"><span>内容</span><input id="recurringNote" type="text" maxlength="40" placeholder="家賃など" /></label>
+          <button type="submit">登録</button>
+        </form>
+        <div class="recurring-list" id="recurringList"></div>
+        <p class="empty-state" id="recurringEmpty">固定費はまだありません</p>
+      </section>
+
+      <section class="card card-data dashboard-data">
+        <div class="card-head"><span class="card-emoji">🛟</span><h2>データ保護</h2></div>
+        <div class="data-actions">
+          <button class="tool-button" id="exportCsvButton" type="button"><span>⬇</span>CSV出力</button>
+          <button class="tool-button" id="importCsvButton" type="button"><span>⬆</span>CSV取込</button>
+          <button class="tool-button" id="trashButton" type="button"><span>♻</span>ゴミ箱 <b id="trashCount">0</b></button>
+          <button class="tool-button" id="backupButton" type="button"><span>☁</span>バックアップ</button>
+          <button class="tool-button" id="historyButton" type="button"><span>↶</span>変更履歴</button>
+        </div>
+        <input id="csvInput" type="file" accept=".csv,text/csv" hidden />
+        <p class="data-note" id="dataStatus">支出は1件ずつ保存されます</p>
+      </section>
+    </main>
+
+    <footer class="app-footer"><span class="save-hint" id="saveHint">自動で保存されます</span></footer>
   </div>
 
-  <script src="sync-config.js?v=1.5.2"></script>
-  <script src="app.js?v=1.5.2"></script>
+  <dialog class="app-dialog" id="expenseDialog">
+    <form method="dialog" id="expenseEditForm">
+      <div class="dialog-head"><h2>支出を編集</h2><button value="cancel" type="submit" aria-label="閉じる">×</button></div>
+      <div class="dialog-grid">
+        <label><span>月</span><input id="editMonth" type="month" required /></label>
+        <label><span>日</span><select id="editDay"></select></label>
+        <label class="dialog-wide"><span>カテゴリ</span><select id="editCategory"></select></label>
+        <label class="dialog-wide"><span>金額</span><input id="editAmount" type="number" inputmode="numeric" min="0" required /></label>
+        <label class="dialog-wide"><span>メモ</span><input id="editNote" type="text" maxlength="80" placeholder="必要なときだけ" /></label>
+      </div>
+      <div class="dialog-actions"><button class="soft-btn" value="cancel" type="submit">キャンセル</button><button class="primary-btn" id="saveExpenseEdit" value="default" type="submit">保存</button></div>
+    </form>
+  </dialog>
+
+  <dialog class="app-dialog" id="listDialog">
+    <div class="dialog-head"><h2 id="listDialogTitle">一覧</h2><button id="closeListDialog" type="button" aria-label="閉じる">×</button></div>
+    <div class="dialog-list" id="dialogList"></div>
+  </dialog>
+
+  <div class="undo-toast" id="undoToast" hidden><span id="undoMessage">削除しました</span><button id="undoButton" type="button">元に戻す</button></div>
+
+  <script src="sync-config.js?v=2.0.0"></script>
+  <script src="app.js?v=2.0.0"></script>
 </body>
 </html>
