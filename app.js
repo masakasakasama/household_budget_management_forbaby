@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "2.1.0";
+  const APP_VERSION = "2.1.1";
   const SCHEMA_VERSION = 2;
   const KEY_DATA = "baby-budget-data-v2";
   const KEY_BACKUPS = "baby-budget-backups-v2";
@@ -812,7 +812,7 @@
     const budgetTotal = sum(month.budgets);
     const salary = num(month.salary);
     const spent = sum(spentExpenses());
-    const planned = sum(plannedExpenses());
+    const planned = remainingBudgetPlan();
     const committed = spent + planned;
     const remaining = salary - committed;
     document.getElementById("fixedTotal").textContent = yen(budgetTotal);
@@ -863,6 +863,16 @@
 
   function plannedExpenses(monthKey = currentMonth) {
     return activeExpenses(monthKey).filter((expense) => expense.status === "planned");
+  }
+
+  function remainingBudgetPlan(monthKey = currentMonth) {
+    const expenses = spentExpenses(monthKey);
+    return monthData(monthKey).budgets.reduce((total, budget) => {
+      const categorySpent = expenses
+        .filter((expense) => expense.category === budget.name)
+        .reduce((categoryTotal, expense) => categoryTotal + num(expense.amount), 0);
+      return total + Math.max(0, num(budget.amount) - categorySpent);
+    }, 0);
   }
 
   function spentFor(category, monthKey = currentMonth) {
