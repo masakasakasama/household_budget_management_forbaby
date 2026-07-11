@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "2.2.1";
+  const APP_VERSION = "2.3.0";
   const SCHEMA_VERSION = 2;
   const KEY_DATA = "baby-budget-data-v2";
   const KEY_BACKUPS = "baby-budget-backups-v2";
@@ -1939,6 +1939,9 @@
   }
 
   function init() {
+    if (window.matchMedia("(max-width: 760px)").matches) {
+      document.getElementById("expenseDisclosure").open = false;
+    }
     bindEvents();
     materializeRecurring(currentMonth);
     render();

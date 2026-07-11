@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=2.2.1" />
+  <link rel="stylesheet" href="style.css?v=2.3.0" />
 </head>
 <body>
   <div class="app">
@@ -126,19 +126,22 @@
       </section>
 
       <section class="card card-credit dashboard-expenses">
-        <div class="card-head card-head-between">
-          <div class="card-title-row"><span class="card-emoji">🧺</span><h2>支出履歴</h2></div>
-          <span class="count-badge" id="expenseCount">0件</span>
-        </div>
-        <div class="expense-filters">
-          <input id="expenseSearch" type="search" placeholder="支出を検索" aria-label="支出を検索" />
-          <select id="expenseCategoryFilter" aria-label="カテゴリで絞り込み"><option value="">すべて</option></select>
-          <select id="expenseStatusFilter" aria-label="状態で絞り込み"><option value="">全状態</option><option value="spent">使った</option><option value="planned">使う予定</option></select>
-          <select id="expenseDayFilter" aria-label="日で絞り込み"><option value="">全日</option></select>
-        </div>
-        <div class="expense-list" id="creditBody"></div>
-        <p class="empty-state" id="expenseEmpty" hidden>この条件の支出はありません</p>
-        <div class="subtotal"><span>給料から引く合計</span><span id="creditTotal">¥0</span></div>
+        <details class="expense-disclosure" id="expenseDisclosure" open>
+          <summary class="card-head card-head-between">
+            <div class="card-title-row"><span class="card-emoji">🧺</span><h2>支出履歴</h2><span class="count-badge" id="expenseCount">0件</span></div>
+          </summary>
+          <div class="expense-disclosure-body">
+            <div class="expense-filters">
+              <input id="expenseSearch" type="search" placeholder="支出を検索" aria-label="支出を検索" />
+              <select id="expenseCategoryFilter" aria-label="カテゴリで絞り込み"><option value="">すべて</option></select>
+              <select id="expenseStatusFilter" aria-label="状態で絞り込み"><option value="">全状態</option><option value="spent">使った</option><option value="planned">使う予定</option></select>
+              <select id="expenseDayFilter" aria-label="日で絞り込み"><option value="">全日</option></select>
+            </div>
+            <div class="expense-list" id="creditBody"></div>
+            <p class="empty-state" id="expenseEmpty" hidden>この条件の支出はありません</p>
+            <div class="subtotal"><span>給料から引く合計</span><span id="creditTotal">¥0</span></div>
+          </div>
+        </details>
       </section>
 
       <section class="card card-fixed dashboard-budgets">
@@ -226,7 +229,7 @@
 
   <div class="undo-toast" id="undoToast" hidden><span id="undoMessage">削除しました</span><button id="undoButton" type="button">元に戻す</button></div>
 
-  <script src="sync-config.js?v=2.2.1"></script>
-  <script src="app.js?v=2.2.1"></script>
+  <script src="sync-config.js?v=2.3.0"></script>
+  <script src="app.js?v=2.3.0"></script>
 </body>
 </html>

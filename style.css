@@ -1012,6 +1012,24 @@ body {
   font-size: 10px;
   font-weight: 800;
 }
+.expense-disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.expense-disclosure > summary::-webkit-details-marker { display: none; }
+.expense-disclosure > summary::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-right: 2px solid var(--ink-soft);
+  border-bottom: 2px solid var(--ink-soft);
+  transform: rotate(45deg);
+  transition: transform .2s ease;
+}
+.expense-disclosure[open] > summary::after { transform: rotate(225deg); }
+.expense-disclosure:not([open]) > summary { margin-bottom: 0; }
 .status-pill.spent { background: var(--mint); color: #397b5f; }
 .status-pill.planned { background: var(--sky); color: #3972a2; }
 .empty-state {
