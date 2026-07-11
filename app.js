@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "2.0.0";
+  const APP_VERSION = "2.1.0";
   const SCHEMA_VERSION = 2;
   const KEY_DATA = "baby-budget-data-v2";
   const KEY_BACKUPS = "baby-budget-backups-v2";
@@ -85,6 +85,7 @@
       })),
       expenses,
       savingGoal: 0,
+      salary: 0,
       locked: false,
       inheritedFrom: "",
       createdAt: Date.now(),
@@ -137,6 +138,7 @@
       }));
       month.expenses = (month.expenses || []).map((expense, index) => normalizeExpense(expense, monthKey, index));
       month.savingGoal = num(month.savingGoal);
+      month.salary = num(month.salary);
       month.locked = Boolean(month.locked);
       month.inheritedFrom ||= "";
       month.createdAt ||= Date.now();
@@ -166,6 +168,7 @@
       amount: num(expense.amount),
       note: expense.note || expense.memo || "",
       source: expense.source || "manual",
+      status: expense.status === "planned" || (!expense.status && expense.source === "recurring") ? "planned" : "spent",
       recurringId: expense.recurringId || "",
       createdAt,
       updatedAtMs: num(expense.updatedAtMs) || createdAt,
@@ -318,6 +321,7 @@
       month: month.month,
       budgets: month.budgets.map((budget) => ({ id: budget.id, name: budget.name, amount: num(budget.amount) })),
       savingGoal: num(month.savingGoal),
+      salary: num(month.salary),
       locked: Boolean(month.locked),
       inheritedFrom: month.inheritedFrom || "",
       createdAt: num(month.createdAt) || Date.now(),
@@ -333,6 +337,7 @@
       amount: num(expense.amount),
       note: expense.note || "",
       source: expense.source || "manual",
+      status: expense.status === "planned" ? "planned" : "spent",
       recurringId: expense.recurringId || "",
       createdAt: num(expense.createdAt) || Date.now(),
       updatedAtMs: num(expense.updatedAtMs) || Date.now(),
@@ -475,6 +480,7 @@
       amount: input.amount,
       note: input.note || "",
       source: input.source || "manual",
+      status: input.status === "planned" ? "planned" : "spent",
       recurringId: input.recurringId || "",
       createdAt: input.createdAt || Date.now(),
       updatedAtMs: Date.now(),
@@ -547,7 +553,18 @@
       amount: source.amount,
       note: source.note,
       source: "duplicate",
+      status: source.status,
     }, "expense-duplicate");
+  }
+
+  function markExpenseSpent(id) {
+    const expense = findExpense(id);
+    if (!expense || expense.status !== "planned") return;
+    const today = new Date();
+    updateExpense(id, {
+      status: "spent",
+      day: expense.month === currentMonthKey(today) ? today.getDate() : expense.day,
+    }, "expense-mark-spent");
   }
 
   function render() {
@@ -682,9 +699,11 @@
   function filteredExpenses() {
     const search = document.getElementById("expenseSearch").value.trim().toLowerCase();
     const category = document.getElementById("expenseCategoryFilter").value;
+    const status = document.getElementById("expenseStatusFilter").value;
     const day = document.getElementById("expenseDayFilter").value;
     return activeExpenses()
       .filter((item) => !category || item.category === category)
+      .filter((item) => !status || item.status === status)
       .filter((item) => !day || String(item.day) === day)
       .filter((item) => {
         if (!search) return true;
@@ -714,6 +733,7 @@
     expenses.forEach((item) => {
       const row = document.createElement("div");
       row.className = "expense-row expense-row-v2";
+      row.classList.toggle("is-planned", item.status === "planned");
 
       const day = expenseField("日", "select");
       fillDaySelect(day.control, currentMonth, item.day);
@@ -744,19 +764,22 @@
 
       const actions = document.createElement("div");
       actions.className = "expense-actions";
+      if (item.status === "planned") {
+        actions.append(iconButton("✓", "使ったにする", () => markExpenseSpent(item.id)));
+      }
       actions.append(
         iconButton("⧉", "複製", () => duplicateExpense(item.id)),
         iconButton("✎", "編集・月を移動", () => openExpenseDialog(item.id)),
         iconButton("×", "ゴミ箱へ", () => softDeleteExpense(item.id))
       );
-      if (item.note) {
-        const note = document.createElement("p");
-        note.className = "expense-note";
-        note.textContent = item.note;
-        row.append(day.wrap, category.wrap, amount.wrap, actions, note);
-      } else {
-        row.append(day.wrap, category.wrap, amount.wrap, actions);
-      }
+      const meta = document.createElement("p");
+      meta.className = "expense-note expense-meta";
+      const status = document.createElement("span");
+      status.className = `status-pill ${item.status}`;
+      status.textContent = item.status === "planned" ? "使う予定" : "使った";
+      meta.appendChild(status);
+      if (item.note) meta.append(document.createTextNode(item.note));
+      row.append(day.wrap, category.wrap, amount.wrap, actions, meta);
       body.appendChild(row);
     });
     document.getElementById("expenseEmpty").hidden = expenses.length > 0;
@@ -787,27 +810,31 @@
   function updateTotals() {
     const month = monthData();
     const budgetTotal = sum(month.budgets);
-    const expenses = activeExpenses();
-    const spent = sum(expenses);
-    const remaining = budgetTotal - spent;
+    const salary = num(month.salary);
+    const spent = sum(spentExpenses());
+    const planned = sum(plannedExpenses());
+    const committed = spent + planned;
+    const remaining = salary - committed;
     document.getElementById("fixedTotal").textContent = yen(budgetTotal);
-    document.getElementById("creditTotal").textContent = yen(spent);
-    document.getElementById("hlIncome").textContent = yen(budgetTotal);
+    document.getElementById("creditTotal").textContent = yen(committed);
+    document.getElementById("salaryInput").value = salary ? salary.toLocaleString("ja-JP") : "";
     document.getElementById("hlExpense").textContent = yen(spent);
+    document.getElementById("hlPlanned").textContent = yen(planned);
     const balance = document.getElementById("hlBalance");
-    balance.textContent = yen(remaining);
-    balance.style.color = remaining < 0 ? "#e5556e" : "var(--ink)";
-    document.getElementById("balanceNote").textContent = month.locked ? "この月は締め済み" : "カテゴリ上限から自動計算";
-    renderPiggy(budgetTotal, spent, remaining);
+    balance.textContent = salary > 0 ? yen(remaining) : "未入力";
+    balance.style.color = salary > 0 && remaining < 0 ? "#e5556e" : "var(--ink)";
+    document.getElementById("balanceNote").textContent = month.locked ? "この月は締め済み" : "給料 − 使用済み − 使用予定";
+    renderPiggy(salary, committed, remaining);
     renderBudgetAlert();
   }
 
-  function renderPiggy(limit, spent, remaining) {
-    const pct = limit > 0 ? Math.max(0, Math.round((spent / limit) * 100)) : 0;
+  function renderPiggy(salary, committed, remaining) {
+    const pct = salary > 0 ? Math.max(0, Math.round((committed / salary) * 100)) : 0;
     document.getElementById("piggyFill").style.width = `${Math.min(100, pct)}%`;
-    document.getElementById("piggyRate").textContent = `上限の${pct}%使用`;
+    document.getElementById("piggyRate").textContent = salary > 0 ? `給料の${pct}%を使用・予定` : "給料を入力してください";
     const msg = document.getElementById("piggyMsg");
-    if (remaining < 0) msg.textContent = "上限を超えています。今月の追加支出を確認しよう。";
+    if (salary <= 0) msg.textContent = "給料を入力すると、最終的に残る金額がわかります。";
+    else if (remaining < 0) msg.textContent = "給料を超えています。支出と予定を確認しよう。";
     else if (pct < 25) msg.textContent = "かなり良いペース。残せた分は貯金に回せそう。";
     else if (pct < 70) msg.textContent = "まだ大丈夫。カテゴリ別の残りを見ながら使おう。";
     else msg.textContent = "残りが少なめ。必要な支出を優先しよう。";
@@ -818,16 +845,24 @@
       ? Math.max(1, daysInMonth(currentMonth) - today.getDate() + 1)
       : daysInMonth(currentMonth);
     document.getElementById("daysRemaining").textContent = `${remainingDays}日`;
-    document.getElementById("dailyAllowance").textContent = yen(Math.max(0, remaining) / remainingDays);
+    document.getElementById("dailyAllowance").textContent = salary > 0 ? yen(Math.max(0, remaining) / remainingDays) : "--";
 
     const goal = num(monthData().savingGoal);
-    const saved = Math.max(0, remaining);
+    const saved = salary > 0 ? Math.max(0, remaining) : 0;
     const goalPct = goal > 0 ? Math.min(100, Math.round((saved / goal) * 100)) : 0;
     document.getElementById("savingGoalInput").value = goal || "";
     document.getElementById("goalProgressFill").style.width = `${goalPct}%`;
     document.getElementById("goalNote").textContent = goal
       ? `目標まで${yen(Math.max(0, goal - saved))}・達成率${goalPct}%`
       : "目標額を入れると達成率を表示します";
+  }
+
+  function spentExpenses(monthKey = currentMonth) {
+    return activeExpenses(monthKey).filter((expense) => expense.status !== "planned");
+  }
+
+  function plannedExpenses(monthKey = currentMonth) {
+    return activeExpenses(monthKey).filter((expense) => expense.status === "planned");
   }
 
   function spentFor(category, monthKey = currentMonth) {
@@ -841,15 +876,17 @@
     wrap.innerHTML = "";
     monthData().budgets.forEach((budget) => {
       const limit = num(budget.amount);
-      const spent = spentFor(budget.name);
-      const remaining = limit - spent;
-      const pct = limit > 0 ? Math.round((spent / limit) * 100) : 0;
+      const spent = sum(spentExpenses().filter((expense) => expense.category === budget.name));
+      const planned = sum(plannedExpenses().filter((expense) => expense.category === budget.name));
+      const committed = spent + planned;
+      const remaining = limit - committed;
+      const pct = limit > 0 ? Math.round((committed / limit) * 100) : 0;
       const row = document.createElement("div");
       row.className = `category-row ${pct >= 100 ? "over" : pct >= 90 ? "danger" : pct >= 70 ? "warn" : ""}`;
       row.innerHTML = `
-        <div class="category-top"><strong>${escapeHtml(budget.name || "未設定")}</strong><span>${yen(spent)} / ${yen(limit)}</span></div>
+        <div class="category-top"><strong>${escapeHtml(budget.name || "未設定")}</strong><span>${yen(committed)} / ${yen(limit)}</span></div>
         <div class="category-bar"><span style="width:${Math.min(100, pct)}%"></span></div>
-        <div class="category-bottom"><span>${pct}%使用</span><span>${remaining >= 0 ? `残り ${yen(remaining)}` : `オーバー ${yen(Math.abs(remaining))}`}</span></div>
+        <div class="category-bottom"><span>${yen(spent)}使用・${yen(planned)}予定</span><span>${remaining >= 0 ? `残り ${yen(remaining)}` : `オーバー ${yen(Math.abs(remaining))}`}</span></div>
       `;
       wrap.appendChild(row);
     });
@@ -882,7 +919,9 @@
     const firstWeekday = new Date(year, month - 1, 1).getDay();
     const dayTotals = new Map();
     activeExpenses().forEach((expense) => {
-      dayTotals.set(expense.day, (dayTotals.get(expense.day) || 0) + num(expense.amount));
+      const totals = dayTotals.get(expense.day) || { spent: 0, planned: 0 };
+      totals[expense.status === "planned" ? "planned" : "spent"] += num(expense.amount);
+      dayTotals.set(expense.day, totals);
     });
     for (let blank = 0; blank < firstWeekday; blank += 1) {
       const cell = document.createElement("span");
@@ -891,13 +930,14 @@
     }
     let noSpend = 0;
     for (let day = 1; day <= daysInMonth(currentMonth); day += 1) {
-      const total = dayTotals.get(day) || 0;
-      if (!total) noSpend += 1;
+      const totals = dayTotals.get(day) || { spent: 0, planned: 0 };
+      const total = totals.spent + totals.planned;
+      if (!totals.spent) noSpend += 1;
       const button = document.createElement("button");
       button.type = "button";
-      button.className = `calendar-day ${total ? "has-spend" : "no-spend"}`;
+      button.className = `calendar-day ${totals.spent ? "has-spend" : totals.planned ? "has-plan" : "no-spend"}`;
       button.innerHTML = `<span>${day}</span><strong>${total ? yen(total) : "○"}</strong>`;
-      button.title = `${day}日 ${total ? yen(total) : "支出なし"}`;
+      button.title = `${day}日 使用${yen(totals.spent)}・予定${yen(totals.planned)}`;
       button.addEventListener("click", () => {
         document.getElementById("quickDay").value = String(day);
         document.getElementById("quickAmount").focus();
@@ -909,7 +949,7 @@
     const elapsed = currentMonth === currentMonthKey()
       ? new Date().getDate()
       : daysInMonth(currentMonth);
-    document.getElementById("dailyAverage").textContent = yen(sum(activeExpenses()) / Math.max(1, elapsed));
+    document.getElementById("dailyAverage").textContent = yen(sum(spentExpenses()) / Math.max(1, elapsed));
   }
 
   function renderAnalysis() {
@@ -927,7 +967,7 @@
     const year = yearSelect.value;
     const monthly = Array.from({ length: 12 }, (_, index) => {
       const key = `${year}-${String(index + 1).padStart(2, "0")}`;
-      return sum((state.months[key]?.expenses || []).filter((item) => !item.deletedAt));
+      return sum((state.months[key]?.expenses || []).filter((item) => !item.deletedAt && item.status !== "planned"));
     });
     const max = Math.max(...monthly, 1);
     const trend = document.getElementById("monthlyTrend");
@@ -944,7 +984,7 @@
     Object.entries(state.months)
       .filter(([key]) => key.startsWith(`${year}-`))
       .forEach(([, month]) => {
-        month.expenses.filter((item) => !item.deletedAt).forEach((expense) => {
+        month.expenses.filter((item) => !item.deletedAt && item.status !== "planned").forEach((expense) => {
           categoryTotals.set(expense.category, (categoryTotals.get(expense.category) || 0) + num(expense.amount));
         });
       });
@@ -1014,6 +1054,7 @@
           amount: item.amount,
           note: item.note,
           source: "recurring",
+          status: "planned",
           recurringId: item.id,
         }, "recurring-materialize");
       });
@@ -1023,7 +1064,7 @@
     const button = document.getElementById("monthLockButton");
     button.textContent = locked ? "締めを解除" : "月を締める";
     button.classList.toggle("is-locked", locked);
-    document.querySelectorAll("#quickAddForm input, #quickAddForm select, #quickAddForm button[type=submit], [data-target=fixed]")
+    document.querySelectorAll("#quickAddForm input, #quickAddForm select, #quickAddForm button[type=submit], #salaryInput, #savingGoalInput, [data-target=fixed]")
       .forEach((control) => { control.disabled = locked; });
   }
 
@@ -1034,6 +1075,7 @@
     document.getElementById("editMonth").value = expense.month;
     fillDaySelect(document.getElementById("editDay"), expense.month, expense.day);
     fillCategorySelect(document.getElementById("editCategory"), expense.category);
+    document.getElementById("editStatus").value = expense.status;
     document.getElementById("editAmount").value = expense.amount;
     document.getElementById("editNote").value = expense.note || "";
     document.getElementById("expenseDialog").showModal();
@@ -1202,10 +1244,10 @@
   }
 
   function exportCsv() {
-    const header = ["id", "month", "day", "category", "amount", "note", "source"];
+    const header = ["id", "month", "day", "status", "category", "amount", "note", "source"];
     const rows = allExpenses(false)
       .sort((a, b) => a.month.localeCompare(b.month) || a.day - b.day)
-      .map((item) => [item.id, item.month, item.day, item.category, item.amount, item.note, item.source]);
+      .map((item) => [item.id, item.month, item.day, item.status, item.category, item.amount, item.note, item.source]);
     const csv = "\uFEFF" + [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const link = document.createElement("a");
@@ -1273,6 +1315,8 @@
     const amount = num(get("amount", "金額", "支出"));
     if (!get("amount", "金額", "支出") && amount === 0) return null;
     const category = get("category", "カテゴリ", "分類") || DEFAULT_CATEGORIES[0];
+    const statusText = get("status", "状態");
+    const status = statusText === "planned" || statusText === "使う予定" || statusText === "予定" ? "planned" : "spent";
     const note = get("note", "memo", "メモ", "内容", "店名");
     const rawId = get("id");
     return normalizeExpense({
@@ -1280,6 +1324,7 @@
       month,
       day: num(day) || 1,
       category,
+      status,
       amount,
       note,
       source: "csv",
@@ -1431,7 +1476,8 @@
   }
 
   function expenseSignature(expense) {
-    return [expense.day, expense.category, num(expense.amount), expense.note || expense.memo || ""].join("|");
+    const status = expense.status === "planned" ? "planned" : "spent";
+    return [expense.day, status, expense.category, num(expense.amount), expense.note || expense.memo || ""].join("|");
   }
 
   function mergeLegacyStates(remoteState, localState) {
@@ -1738,6 +1784,7 @@
         month: currentMonth,
         day: Number(document.getElementById("quickDay").value),
         category: document.getElementById("quickCategory").value,
+        status: document.getElementById("quickStatus").value,
         amount: num(amount.value),
       });
       amount.value = "";
@@ -1762,6 +1809,7 @@
     });
     document.getElementById("expenseSearch").addEventListener("input", renderExpenses);
     document.getElementById("expenseCategoryFilter").addEventListener("change", renderExpenses);
+    document.getElementById("expenseStatusFilter").addEventListener("change", renderExpenses);
     document.getElementById("expenseDayFilter").addEventListener("change", renderExpenses);
     document.getElementById("analysisYear").addEventListener("change", renderAnalysis);
 
@@ -1772,6 +1820,17 @@
       persistLocal();
       syncMonth(currentMonth, "saving-goal-update", before);
       updateTotals();
+    });
+    document.getElementById("salaryInput").addEventListener("change", (event) => {
+      const month = monthData();
+      const before = serializeMonth(month);
+      month.salary = num(event.target.value);
+      persistLocal("給料を保存しました");
+      syncMonth(currentMonth, "salary-update", before);
+      updateTotals();
+    });
+    document.getElementById("salaryInput").addEventListener("focus", (event) => {
+      event.target.value = num(event.target.value) || "";
     });
     document.getElementById("monthLockButton").addEventListener("click", () => {
       const month = monthData();
@@ -1817,6 +1876,7 @@
         month,
         day: Number(document.getElementById("editDay").value),
         category: document.getElementById("editCategory").value,
+        status: document.getElementById("editStatus").value,
         amount: num(document.getElementById("editAmount").value),
         note: document.getElementById("editNote").value.trim(),
       }, "expense-edit");

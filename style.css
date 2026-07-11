@@ -723,6 +723,29 @@ body {
 }
 
 /* ---------- v2 dashboard ---------- */
+.highlight-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.hl-planned { background: linear-gradient(160deg, #fff, var(--sky)); }
+.salary-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 800;
+}
+.salary-value input {
+  width: min(120px, calc(100% - 18px));
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+}
+.salary-value input:focus { outline: 2px solid var(--mint-deep); border-radius: 8px; }
 .card-head-between {
   justify-content: space-between;
   gap: 12px;
@@ -814,7 +837,7 @@ body {
 }
 
 .quick-add {
-  grid-template-columns: minmax(120px, 1.15fr) minmax(140px, 1.25fr) minmax(64px, .55fr) auto;
+  grid-template-columns: minmax(110px, 1.1fr) minmax(125px, 1.2fr) minmax(92px, .8fr) minmax(58px, .5fr) auto;
 }
 .quick-add .quick-amount input { font-size: 20px; }
 .inline-status {
@@ -893,7 +916,7 @@ body {
 
 .expense-filters {
   display: grid;
-  grid-template-columns: minmax(130px, 1.4fr) minmax(110px, 1fr) minmax(70px, .55fr);
+  grid-template-columns: minmax(125px, 1.4fr) minmax(105px, 1fr) minmax(85px, .75fr) minmax(66px, .55fr);
   gap: 6px;
   margin-bottom: 10px;
 }
@@ -922,8 +945,7 @@ body {
   grid-template-columns: minmax(54px, .52fr) minmax(125px, 1.25fr) minmax(90px, .8fr) auto;
 }
 .expense-actions {
-  display: grid;
-  grid-template-columns: repeat(3, 30px);
+  display: flex;
   align-items: center;
   align-self: end;
   gap: 2px;
@@ -948,6 +970,18 @@ body {
   color: var(--ink-soft);
   font-size: 11px;
 }
+.expense-row.is-planned { background: #f2f8ff; }
+.expense-row.is-planned .amount-cell { color: var(--sky-deep); }
+.expense-meta { display: flex; align-items: center; gap: 7px; }
+.status-pill {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 800;
+}
+.status-pill.spent { background: var(--mint); color: #397b5f; }
+.status-pill.planned { background: var(--sky); color: #3972a2; }
 .empty-state {
   margin: 10px 0;
   color: var(--ink-soft);
@@ -996,6 +1030,7 @@ button.calendar-day {
   white-space: nowrap;
 }
 .calendar-day.has-spend { background: #fff0f4; }
+.calendar-day.has-plan { background: #eef7ff; color: #3972a2; }
 .calendar-day.no-spend { background: #ecf9f2; color: #4f9c77; }
 .calendar-day:hover { outline: 2px solid var(--pink); }
 .calendar-day.blank { visibility: hidden; }
@@ -1207,6 +1242,10 @@ button.calendar-day {
 .undo-toast button { border: none; background: transparent; color: var(--pink); font-family: inherit; font-weight: 800; cursor: pointer; }
 
 @media (max-width: 760px) {
+  .highlight-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hl-balance { grid-column: auto; }
+  .salary-value,
+  .salary-value input { font-size: 16px; }
   .dashboard-grid {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -1221,10 +1260,10 @@ button.calendar-day {
     gap: 12px;
   }
   .quick-add {
-    grid-template-columns: minmax(92px, 1fr) minmax(112px, 1.2fr) minmax(56px, .55fr);
+    grid-template-columns: minmax(105px, 1fr) minmax(120px, 1.15fr);
   }
   .quick-add button { grid-column: 1 / -1; }
-  .expense-filters { grid-template-columns: 1fr 1fr; }
+  .expense-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .expense-filters input { grid-column: 1 / -1; }
   .expense-filters input,
   .expense-filters select,
@@ -1244,7 +1283,8 @@ button.calendar-day {
   .line-row .line-name { width: 100%; }
   .expense-actions {
     grid-column: 1 / -1;
-    grid-template-columns: repeat(3, 1fr);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
     width: 100%;
     border-top: 1px dashed var(--line);
     padding-top: 4px;
@@ -1259,7 +1299,7 @@ button.calendar-day {
 }
 
 @media (max-width: 390px) {
-  .quick-add { grid-template-columns: minmax(84px, 1fr) minmax(104px, 1.2fr) minmax(52px, .55fr); }
+  .quick-add { grid-template-columns: minmax(96px, 1fr) minmax(108px, 1.1fr); }
   .quick-add input,
   .quick-add select { padding: 9px 6px; }
   .data-actions { grid-template-columns: 1fr; }

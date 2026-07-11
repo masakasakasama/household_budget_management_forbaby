@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=2.0.0" />
+  <link rel="stylesheet" href="style.css?v=2.1.0" />
 </head>
 <body>
   <div class="app">
@@ -40,19 +40,24 @@
     <section class="highlight-row">
       <div class="hl-card hl-income">
         <span class="hl-emoji">💰</span>
-        <span class="hl-label">カテゴリ上限合計</span>
-        <span class="hl-value" id="hlIncome">¥0</span>
+        <span class="hl-label">今月の給料</span>
+        <label class="salary-value"><span>¥</span><input id="salaryInput" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" aria-label="今月の給料" /></label>
       </div>
       <div class="hl-card hl-expense">
         <span class="hl-emoji">🧾</span>
-        <span class="hl-label">すでに使った金額</span>
+        <span class="hl-label">使った</span>
         <span class="hl-value" id="hlExpense">¥0</span>
+      </div>
+      <div class="hl-card hl-planned">
+        <span class="hl-emoji">🗓️</span>
+        <span class="hl-label">使う予定</span>
+        <span class="hl-value" id="hlPlanned">¥0</span>
       </div>
       <div class="hl-card hl-balance">
         <span class="hl-emoji">🐷</span>
-        <span class="hl-label">今月の残り</span>
+        <span class="hl-label">最終的に残る</span>
         <span class="hl-value" id="hlBalance">¥0</span>
-        <span class="hl-note" id="balanceNote">カテゴリ上限から自動計算</span>
+        <span class="hl-note" id="balanceNote">給料 − 使用済み − 使用予定</span>
       </div>
     </section>
 
@@ -74,6 +79,10 @@
         <label>
           <span>カテゴリ</span>
           <select id="quickCategory"></select>
+        </label>
+        <label>
+          <span>状態</span>
+          <select id="quickStatus"><option value="spent">使った</option><option value="planned">使う予定</option></select>
         </label>
         <label>
           <span>日</span>
@@ -114,11 +123,12 @@
         <div class="expense-filters">
           <input id="expenseSearch" type="search" placeholder="支出を検索" aria-label="支出を検索" />
           <select id="expenseCategoryFilter" aria-label="カテゴリで絞り込み"><option value="">すべて</option></select>
+          <select id="expenseStatusFilter" aria-label="状態で絞り込み"><option value="">全状態</option><option value="spent">使った</option><option value="planned">使う予定</option></select>
           <select id="expenseDayFilter" aria-label="日で絞り込み"><option value="">全日</option></select>
         </div>
         <div class="expense-list" id="creditBody"></div>
         <p class="empty-state" id="expenseEmpty" hidden>この条件の支出はありません</p>
-        <div class="subtotal"><span>使用済み合計</span><span id="creditTotal">¥0</span></div>
+        <div class="subtotal"><span>給料から引く合計</span><span id="creditTotal">¥0</span></div>
       </section>
 
       <section class="card card-fixed dashboard-budgets">
@@ -191,6 +201,7 @@
         <label><span>月</span><input id="editMonth" type="month" required /></label>
         <label><span>日</span><select id="editDay"></select></label>
         <label class="dialog-wide"><span>カテゴリ</span><select id="editCategory"></select></label>
+        <label class="dialog-wide"><span>状態</span><select id="editStatus"><option value="spent">使った</option><option value="planned">使う予定</option></select></label>
         <label class="dialog-wide"><span>金額</span><input id="editAmount" type="number" inputmode="numeric" min="0" required /></label>
         <label class="dialog-wide"><span>メモ</span><input id="editNote" type="text" maxlength="80" placeholder="必要なときだけ" /></label>
       </div>
@@ -205,7 +216,7 @@
 
   <div class="undo-toast" id="undoToast" hidden><span id="undoMessage">削除しました</span><button id="undoButton" type="button">元に戻す</button></div>
 
-  <script src="sync-config.js?v=2.0.0"></script>
-  <script src="app.js?v=2.0.0"></script>
+  <script src="sync-config.js?v=2.1.0"></script>
+  <script src="app.js?v=2.1.0"></script>
 </body>
 </html>
