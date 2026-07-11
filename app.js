@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "2.2.0";
+  const APP_VERSION = "2.2.1";
   const SCHEMA_VERSION = 2;
   const KEY_DATA = "baby-budget-data-v2";
   const KEY_BACKUPS = "baby-budget-backups-v2";
@@ -840,11 +840,11 @@
     document.getElementById("piggyBudgetValue").textContent = yen(budgetRemaining);
     document.getElementById("piggySalaryValue").textContent = salary > 0 ? yen(remaining) : "未入力";
     document.getElementById("piggyRate").textContent = budgetTotal > 0
-      ? `使う予定 ${yen(budgetTotal)} のうち ${usedPct}%使用`
+      ? `上限目標 ${yen(budgetTotal)} のうち ${usedPct}%使用`
       : "カテゴリ上限を入力してください";
     const msg = document.getElementById("piggyMsg");
     if (salary <= 0) msg.textContent = "給料を入力すると、最終的に残る金額がわかります。";
-    else if (remaining < 0) msg.textContent = "使う予定が給料を超えています。カテゴリ上限を確認しよう。";
+    else if (remaining < 0) msg.textContent = "使う上限の目標が給料を超えています。カテゴリ上限を確認しよう。";
     else if (usedPct < 25) msg.textContent = "予算にはまだ余裕があります。";
     else if (usedPct < 70) msg.textContent = "カテゴリ別の残りを見ながら使おう。";
     else msg.textContent = "残りが少なめ。必要な支出を優先しよう。";
