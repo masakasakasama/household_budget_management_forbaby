@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "1.5.1";
+  const APP_VERSION = "1.5.2";
   const KEY_DATA = "baby-budget-data-v2";
   const KEY_SYNC = "baby-budget-lastsync-v2";
   const POLL_MS = 15000;
@@ -63,7 +63,7 @@
   }
 
   let state = load();
-  let currentMonth = "2026-06";
+  let currentMonth = currentMonthKey();
   let pushTimer = null;
   let pushing = false;
   let firestore = null;
@@ -118,8 +118,24 @@
     return changed;
   }
 
+  function currentMonthKey(date = new Date()) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function newMonthData() {
+    const previousMonth = Object.keys(state.months)
+      .filter((month) => month < currentMonth)
+      .sort()
+      .pop();
+    const budgets = state.months[previousMonth]?.budgets || seedMonth().budgets;
+    return {
+      budgets: budgets.map((budget) => ({ ...budget })),
+      expenses: [],
+    };
+  }
+
   function monthData() {
-    if (!state.months[currentMonth]) state.months[currentMonth] = seedMonth();
+    if (!state.months[currentMonth]) state.months[currentMonth] = newMonthData();
     return state.months[currentMonth];
   }
 
