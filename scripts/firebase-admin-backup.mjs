@@ -34,13 +34,19 @@ export function manifest(data) {
   }
   return { documents: Object.keys(data.firestore).length, firestore: digest(normalizeReferences(data.firestore)), rtdb: digest(data.rtdb), rules: digest(data.rules) };
 }
-async function request(url, body) {
+export function firestorePath(project, name) {
+  const prefix = `projects/${project}/databases/(default)/documents/`;
+  if (!name.startsWith(prefix)) throw Error('Unexpected Firestore document resource');
+  return name.slice(prefix.length);
+}
+export const encodePath = path => path.split('/').map(encodeURIComponent).join('/');
+async function request(url, body, raw = false) {
   const response = await fetch(url, { method: body === undefined ? 'GET' : 'POST', redirect: 'error', headers: {
     Authorization: `Bearer ${process.env.GCP_ACCESS_TOKEN}`, 'Content-Type': 'application/json'
   }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(120000) });
   // Error responses can contain data: never echo them or tokens.
   if (!response.ok) throw Error(`Admin read failed: HTTP ${response.status}`);
-  return response.json();
+  return raw ? response.text() : response.json();
 }
 async function capture(project, databaseURL) {
   if (!process.env.GCP_ACCESS_TOKEN) throw Error('Provide a short-lived administrator GCP_ACCESS_TOKEN through the environment');
@@ -59,10 +65,10 @@ async function capture(project, databaseURL) {
           const query = new URLSearchParams({ pageSize: '1000', showMissing: 'true', ...(token ? { pageToken: token } : {}) });
           const docs = await request(`${db}${parent}/${encodeURIComponent(id)}?${query}`);
           for (const doc of docs.documents || []) {
-            const path = doc.name.split('/documents/')[1];
+            const path = firestorePath(project, doc.name);
             // Preserve original protobuf field values, including exact integer/timestamp/reference/bytes types.
             if (doc.createTime || doc.updateTime || doc.fields) firestore[path] = doc.fields || {};
-            await collection('/' + path);
+            await collection('/' + encodePath(path));
           }
           token = docs.nextPageToken;
         } while (token);
@@ -71,7 +77,8 @@ async function capture(project, databaseURL) {
     } while (pageToken);
   }
   await collection('');
-  const rtdb = await request(`${url.origin}/.json`);
+  // Export priorities too, and keep the original JSON text to avoid rounding large integer literals.
+  const rtdb = await request(`${url.origin}/.json?format=export`, undefined, true);
   const rtdbRules = await request(`${url.origin}/.settings/rules.json`);
   const release = await request(`https://firebaserules.googleapis.com/v1/projects/${project}/releases/cloud.firestore`);
   const firestoreRules = await request(`https://firebaserules.googleapis.com/v1/${release.rulesetName}`);
