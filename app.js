@@ -1744,6 +1744,24 @@
     ];
   }
 
+  async function googleSignInForSync() {
+    const button = document.getElementById("cloudSignInButton");
+    button.disabled = true;
+    try {
+      const { initializeApp, getApps, getApp } = await firebaseAppApi();
+      const { getAuth, GoogleAuthProvider, signInWithPopup } = await firebaseAuthApi();
+      const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
+      const provider = new GoogleAuthProvider();
+      // Existing anonymous account is never accepted as an authorization factor.
+      await signInWithPopup(getAuth(app), provider);
+      await initFirestoreSync();
+    } catch (error) {
+      setDataStatus("端末に保存中・Googleログインまたはクラウド承認に失敗");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   async function initFirestoreSync() {
     if (!syncEnabled()) {
       setDataStatus("端末に保存中・Firestore未設定");
@@ -1752,19 +1770,25 @@
     setDataStatus("Firestoreへ接続中");
     try {
       const { initializeApp } = await firebaseAppApi();
-      const { getAuth, signInAnonymously } = await firebaseAuthApi();
+      const { getAuth } = await firebaseAuthApi();
+      const { getApps, getApp } = await firebaseAppApi();
       fsApi = await firebaseFirestoreApi();
-      const { getFirestore, doc, setDoc, updateDoc, arrayUnion, serverTimestamp } = fsApi;
-      const app = initializeApp(FIREBASE_CONFIG);
-      authUser = (await signInAnonymously(getAuth(app))).user;
+      const { getFirestore, doc } = fsApi;
+      const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
+      const auth = getAuth(app);
+      await auth.authStateReady();
+      authUser = auth.currentUser;
+      if (!authUser || authUser.isAnonymous) {
+        document.getElementById("cloudSignInButton").hidden = false;
+        setDataStatus("端末に保存中・クラウド同期には承認済みGoogleアカウントが必要");
+        return;
+      }
+      document.getElementById("cloudSignInButton").hidden = true;
       firestore = getFirestore(app);
       const spaceRef = doc(firestore, "spaces", SPACE_ID);
       spaceDocumentRef = spaceRef;
-      try {
-        await updateDoc(spaceRef, { memberUids: arrayUnion(authUser.uid), updatedAt: serverTimestamp() });
-      } catch {
-        await setDoc(spaceRef, { name: "Baby家計簿", memberUids: [authUser.uid], updatedAt: serverTimestamp() }, { merge: true });
-      }
+      // Client-side self-enrollment was removed. Firestore Rules must verify an
+      // existing, admin-created approvedBudgetUsers/<auth.uid> document.
       await migrateLegacyData(spaceRef);
       remoteReady = true;
       await flushPending();
@@ -1796,6 +1820,7 @@
   }
 
   function bindEvents() {
+    document.getElementById("cloudSignInButton").addEventListener("click", googleSignInForSync);
     document.getElementById("quickAddForm").addEventListener("submit", (event) => {
       event.preventDefault();
       const amount = document.getElementById("quickAmount");
