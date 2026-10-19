@@ -1,0 +1,14 @@
+{
+  "Home": {
+    "apkSha256": "5727af01df91e3ad88cdd2f2ff7af1134bfec9e98df2c7ea8ff0fc11768cf987",
+    "signerSha256": "0c949211f46894cd1e2b3754dde94292dad48de890cecb24920feea65d3f46de",
+    "signedReleaseVerified": true,
+    "published": false
+  },
+  "Stock": {
+    "apkSha256": "7d2d7f58dff48aee2dc5e318d099e4d5ca42b05e984208b2c53b0ef7574f060b",
+    "signerSha256": "0c949211f46894cd1e2b3754dde94292dad48de890cecb24920feea65d3f46de",
+    "signedReleaseVerified": true,
+    "published": false
+  }
+}

@@ -1,0 +1,28 @@
+[
+  {
+    "app": "Home",
+    "device": "disposable Android API34 emulator",
+    "package": "com.masakasakasama.home.securityqa",
+    "differentSigners": true,
+    "inPlaceUpdateRejected": true,
+    "backupReadbackBeforeUninstall": true,
+    "restoredContentSha256": "3be5e7b83c80f0687e860037d79b59d8cd86289482fefa9766f0f814d893de3b",
+    "rollbackVerified": true,
+    "physicalDeviceTest": false,
+    "productionDataUsed": false,
+    "sharedSignerPermissionVerified": true
+  },
+  {
+    "app": "Stock",
+    "device": "disposable Android API34 emulator",
+    "package": "com.example.stockwidget.securityqa",
+    "differentSigners": true,
+    "inPlaceUpdateRejected": true,
+    "backupReadbackBeforeUninstall": true,
+    "restoredContentSha256": "d65407c35d2533f90e30a664580bfea949f661a4ffc8062314039425857fb118",
+    "rollbackVerified": true,
+    "physicalDeviceTest": false,
+    "productionDataUsed": false,
+    "sharedSignerPermissionVerified": true
+  }
+]

@@ -1,0 +1,19 @@
+{
+  "name": "baby-budget-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test scripts/*.test.cjs",
+    "test:rules": "node scripts/run-emulator-tests.mjs",
+    "test:browser": "node scripts/web-ui.test.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "6.0.0",
+    "@playwright/test": "1.64.1",
+    "esbuild": "0.28.2",
+    "firebase": "13.0.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.14.6"
+  }
+}
