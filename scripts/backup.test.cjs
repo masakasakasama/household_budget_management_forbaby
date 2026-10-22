@@ -45,3 +45,23 @@ test('cannot start restore if rollback journal cannot be persisted', () => {
   assert.throws(() => backup.transaction(storage,keys,{data:'new',pending:'[]',settings:null},'test'));
   assert.equal(storage.getItem('data'),'old');
 });
+
+
+test('stored-data validation rejects broken JSON and structures without mutating original entries', () => {
+  const shapes = { data: 'budget', pending: 'array' };
+  const valid = {data: JSON.stringify({months:{'2026-10':{expenses:[{id:'e1',amount:1}],budgets:[]}},recurring:[]}),pending:'[]'};
+  assert.doesNotThrow(() => backup.validateLocalEntries(valid, shapes));
+  for (const broken of ['{"partial":', 'null', '[]', '{"months":[]}', '{"months":{"2026-10":{"expenses":[null]}}}']) {
+    const entries = {...valid, data:broken};
+    assert.throws(() => backup.validateLocalEntries(entries, shapes));
+    assert.equal(entries.data,broken);
+  }
+  assert.throws(() => backup.validateLocalEntries({...valid,pending:'{}'},shapes));
+});
+
+test('stored-data validation accepts legacy checklist migration and preserves optional fields', () => {
+  const entries = {old:JSON.stringify({custom:[{id:'legacy',ja:'task'}]}),data:JSON.stringify({checked:{task:{v:true,t:1}},custom:[],dates:{},plan:{},extra:'preserved'})};
+  assert.doesNotThrow(() => backup.validateLocalEntries(entries,{old:'marriageLegacy',data:'marriage'}));
+  assert.equal(JSON.parse(entries.data).extra,'preserved');
+  assert.throws(() => backup.validateLocalEntries({data:'{"checked":[],"custom":[]}'},{data:'marriage'}));
+});

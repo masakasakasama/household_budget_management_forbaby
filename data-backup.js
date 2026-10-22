@@ -51,6 +51,40 @@
     const raw = storage.getItem(prefix + ":pending");
     if (raw !== null) { apply(storage, JSON.parse(raw)); storage.removeItem(prefix + ":pending"); }
   }
+  function validateLocalEntries(entries, shapes) {
+    const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
+    for (const [key, shape] of Object.entries(shapes)) {
+      if (entries[key] === null) continue;
+      const value = JSON.parse(entries[key]);
+      if (shape === "array") { if (!Array.isArray(value)) throw Error("保存形式不一致"); continue; }
+      if (!object(value)) throw Error("保存形式不一致");
+      if (shape === "budget") {
+        if (!object(value.months) || value.recurring !== undefined && !Array.isArray(value.recurring)) throw Error("家計簿の保存形式不一致");
+        for (const month of Object.values(value.months)) {
+          if (!object(month) || month.expenses !== undefined && !Array.isArray(month.expenses) || month.budgets !== undefined && !Array.isArray(month.budgets)) throw Error("月の保存形式不一致");
+          if ((month.expenses || []).some(item => !object(item)) || (month.budgets || []).some(item => !object(item))) throw Error("記録の保存形式不一致");
+        }
+      }
+      if (shape === "marriageLegacy" && value.checked !== undefined && !object(value.checked)) throw Error("旧チェックリストの保存形式不一致");
+      if (shape === "marriageLegacy" && value.custom !== undefined && !Array.isArray(value.custom)) throw Error("旧タスクの保存形式不一致");
+      if (shape === "marriage") {
+        if (!object(value.checked) || value.custom !== undefined && !Array.isArray(value.custom) || value.dates !== undefined && !object(value.dates) || value.plan !== undefined && !object(value.plan)) throw Error("チェックリストの保存形式不一致");
+      }
+    }
+    return "保存形式を確認しました";
+  }
+  function ensureReadable(options) {
+    const { app, shapes } = options, keys = Object.keys(shapes);
+    try { validateLocalEntries(snapshot(localStorage, keys), shapes); return true; }
+    catch {
+      const warning = document.createElement("p"); warning.id = "localDataRecovery"; warning.setAttribute("role", "alert");
+      warning.style.cssText = "padding:16px;border:2px solid #c44";
+      warning.textContent = "保存データを読み取れません。初期値で上書きせず、元データを保持しました。下の完全バックアップで元データを保存し、正常なバックアップを復元してください。";
+      document.body.appendChild(warning);
+      mount({ app, keys, validate: entries => validateLocalEntries(entries, shapes) });
+      return false;
+    }
+  }
   function mount(options) {
     const { app, keys, validate, prepareRestore } = options;
     const prefix = app + ":backup";
@@ -121,7 +155,7 @@
     if (localStorage.getItem(prefix + ":hold")) status.textContent = "復元後のクラウド同期は確認待ちです。閲覧・ローカル編集は可能です。内容確認後に同期を再開できます。";
     document.body.appendChild(panel);
   }
-  const api = { seal, open, snapshot, transaction, recover, mount };
+  const api = { seal, open, snapshot, transaction, recover, mount, validateLocalEntries, ensureReadable };
   root.DataBackup = api;
   if (typeof module !== "undefined") module.exports = api;
 })(typeof window === "undefined" ? globalThis : window);

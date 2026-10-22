@@ -233,5 +233,14 @@
 
   <script src="sync-config.js?v=2.3.0"></script>
   <script src="app.js?v=2.3.0"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(function () {
+      // The app's local storage remains available if offline caching is unsupported.
+    });
+  });
+}
+</script>
 </body>
 </html>

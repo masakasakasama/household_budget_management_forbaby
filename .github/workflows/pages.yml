@@ -31,7 +31,7 @@ jobs:
       - name: Select public site files only
         run: |
           mkdir public
-          cp index.html app.js style.css sync-config.js data-backup.js version.json public/
+          cp index.html app.js style.css sync-config.js data-backup.js sw.js version.json public/
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
         with:

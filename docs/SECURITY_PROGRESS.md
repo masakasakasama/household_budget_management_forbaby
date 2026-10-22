@@ -51,3 +51,8 @@
 | 8 | 上記の実証を記録した後にだけ、本番Rules・公開・マージを実施する | 現在は未許可の前提ではなく、ユーザー指定のデータ保護条件が未充足のため未実施 |
 
 参考: [Androidの署名と更新](https://developer.android.com/studio/publish/app-signing)、[GoogleのAndroid認可](https://developer.android.com/identity/authorization)、[Gmailラベル取得と必要権限](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.labels/get)、[Firestore管理エクスポート/インポート](https://firebase.google.com/docs/firestore/manage-data/export-import)、[Firebase Rulesの実効権限](https://firebase.google.com/docs/rules/rules-behavior)。
+
+
+## 2026-10-22追加改修
+
+公開ファイルだけのオフラインキャッシュを実装し、通信遮断中の再読込・編集・再読込をブラウザで確認。破損JSONや不正な保存形式は初期データで上書きせず、原本を残してバックアップ復旧画面を表示する。各12件の単体、暗号化復元・ロールバックと破損回復のブラウザ試験、Firebaseルール試験が成功。婚姻の同期回帰も成功。実機・管理者バックアップ・本番反映は未実施。詳細は [移行上の負担・制限](MIGRATION_TRADEOFFS.md)。

@@ -27,6 +27,9 @@
   );
 
   DataBackup.recover(localStorage, "baby-budget:backup");
+  if (!DataBackup.ensureReadable({ app: "baby-budget", shapes: {
+    [KEY_DATA]: "budget", [KEY_BACKUPS]: "array", [KEY_PENDING]: "array", [KEY_RECENT]: "array"
+  } })) return;
   let loadedSchemaVersion = 0;
   let hasSavedLocalState = false;
   let state = loadState();

@@ -59,6 +59,38 @@ try {
   await Promise.all([target.waitForEvent('load'),target.getByRole('button',{name:'復元直前へロールバック',exact:true}).click()]);
   await target.getByRole('button',{name:'完全バックアップを書き出す',exact:true}).waitFor();
   assert.deepEqual(await snapshot(target),targetBefore);
+  // A corrupt existing record must never be replaced by demonstration/initial data.
+  const damaged=await page();
+  const bad='{"interrupted-save":';
+  await damaged.evaluate(({key,bad})=>localStorage.setItem(key,bad),{key:keys[0],bad});
+  await damaged.reload();await damaged.locator('#localDataRecovery').waitFor();
+  assert.equal((await snapshot(damaged))[keys[0]],bad);
+  await damaged.getByPlaceholder('12文字以上のパスフレーズ').fill('fixture-long-backup-password');
+  await Promise.all([damaged.waitForEvent('load'),damaged.locator('input[type=file][accept=".backup"]').setInputFiles(file)]);
+  await damaged.getByRole('button',{name:'完全バックアップを書き出す',exact:true}).waitFor();
+  assert.deepEqual(await snapshot(damaged),before);
+  // Load the actual worker, then take the browser offline and reload/edit/reload.
+  await original.evaluate(async()=>{
+    await navigator.serviceWorker.ready;
+    if(!navigator.serviceWorker.controller) await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));
+  });
+  const cacheUrls=await original.evaluate(async()=>{
+    const urls=[];for(const name of await caches.keys())for(const request of await(await caches.open(name)).keys())urls.push(request.url);return urls;
+  });
+  assert.ok(cacheUrls.length>0);assert.ok(cacheUrls.every(value=>new URL(value).hostname==='127.0.0.1'));
+  await original.context().setOffline(true);await original.reload();
+  await original.getByRole('button',{name:'完全バックアップを書き出す',exact:true}).waitFor();
+  if(marriage) {
+    assert.equal(await original.locator('[data-id="ta1"]').isChecked(),true);
+    await original.locator('label:has(input[data-id="ta2"])').click();await original.reload();
+    assert.equal(await original.locator('[data-id="ta2"]').isChecked(),true);
+  } else {
+    assert.equal((await original.locator('#salaryInput').inputValue()).replaceAll(',',''),'321000');
+    await original.locator('#salaryInput').click();await original.locator('#salaryInput').fill('324000');await original.locator('#salaryInput').dispatchEvent('change');await original.reload();
+    assert.equal((await original.locator('#salaryInput').inputValue()).replaceAll(',',''),'324000');
+    assert.ok(JSON.parse((await snapshot(original))['baby-budget-pending-v2']).length>0);
+  }
+  await original.context().setOffline(false);
   assert.deepEqual(errors,[]);
-  console.log(`PASS: ${marriage?'marriage':'budget'} browser export -> encrypted download -> wrong-password refusal -> fresh-browser import -> exact content/visible data -> rollback; no production network access`);
+  console.log(`PASS: ${marriage?'marriage':'budget'} browser export -> encrypted download -> wrong-password refusal -> fresh-browser import -> exact content/visible data -> rollback; corrupt-data preservation/recovery; offline reload/edit/reload; no production network access`);
 } finally {for(const context of contexts)await context.close();await browser.close();await new Promise(resolve=>server.close(resolve));}
