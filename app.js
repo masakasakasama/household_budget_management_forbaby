@@ -19,12 +19,17 @@
   ];
 
   const syncEnabled = () => Boolean(
+    !localStorage.getItem("baby-budget:backup:hold") &&
     FIREBASE_CONFIG.apiKey &&
     FIREBASE_CONFIG.appId &&
     FIREBASE_CONFIG.projectId &&
     !window.location?.search?.includes("offline=1")
   );
 
+  DataBackup.recover(localStorage, "baby-budget:backup");
+  if (!DataBackup.ensureReadable({ app: "baby-budget", shapes: {
+    [KEY_DATA]: "budget", [KEY_BACKUPS]: "array", [KEY_PENDING]: "array", [KEY_RECENT]: "array"
+  } })) return;
   let loadedSchemaVersion = 0;
   let hasSavedLocalState = false;
   let state = loadState();
@@ -222,7 +227,7 @@
     month.inheritedFrom = previousKey || "";
     state.months[monthKey] = month;
     persistLocal("");
-    if (remoteReady) syncMonth(monthKey, "month-create");
+    syncMonth(monthKey, "month-create");
     return month;
   }
 
@@ -387,59 +392,81 @@
       before,
       queuedAt: Date.now(),
     };
-    if (!remoteReady) {
-      addPending(operation);
-      return;
-    }
-    writeOperation(operation).catch(() => addPending(operation));
+    // Persist BEFORE network I/O; app closure and auth failure must not lose edits.
+    addPending(operation);
+    if (remoteReady) flushPending();
   }
 
   function addPending(operation) {
     const pending = loadJson(KEY_PENDING, []);
     const withoutSame = pending.filter((item) => item.operationId !== operation.operationId);
     withoutSame.push(operation);
-    localStorage.setItem(KEY_PENDING, JSON.stringify(withoutSame.slice(-500)));
+    localStorage.setItem(KEY_PENDING, JSON.stringify(withoutSame));
     setDataStatus("端末に保存済み・同期待ち");
   }
 
   async function writeOperation(operation) {
     if (!remoteReady || !firestore || !fsApi) throw new Error("offline");
-    const { doc, writeBatch, serverTimestamp } = fsApi;
-    const batch = writeBatch(firestore);
-    const collectionName = entityCollection(operation.type);
-    const entityRef = doc(firestore, "spaces", SPACE_ID, collectionName, operation.id);
+    const { doc, runTransaction, serverTimestamp } = fsApi;
+    const entityRef = doc(firestore, "spaces", SPACE_ID, entityCollection(operation.type), operation.id);
     const historyRef = doc(firestore, "spaces", SPACE_ID, "history", operation.operationId);
-    batch.set(entityRef, {
-      ...operation.data,
-      serverUpdatedAt: serverTimestamp(),
-      updatedBy: authUser?.uid || "",
-    }, { merge: true });
-    batch.set(historyRef, {
-      action: operation.action,
-      entityType: operation.type,
-      entityId: operation.id,
-      before: operation.before || null,
-      after: operation.data,
-      createdAtMs: operation.queuedAt,
-      createdAt: serverTimestamp(),
-      updatedBy: authUser?.uid || "",
+    function mergeBudgetRows(before, local, remote) {
+      const old = new Map(before.map(item => [item.id, item]));
+      const current = new Map(remote.map(item => [item.id, { ...item }]));
+      const localIds = new Set(local.map(item => item.id));
+      for (const id of old.keys()) if (!localIds.has(id)) current.delete(id);
+      for (const item of local) {
+        const prior = old.get(item.id);
+        const changed = prior ? Object.fromEntries(Object.entries(item).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(prior[key]))) : item;
+        if (!prior || Object.keys(changed).length) current.set(item.id, { ...(current.get(item.id) || prior || {}), ...changed });
+      }
+      const reordered = JSON.stringify(before.map(item => item.id)) !== JSON.stringify(local.map(item => item.id));
+      const order = reordered ? [...local.map(item => item.id), ...remote.map(item => item.id)] : [...remote.map(item => item.id), ...local.map(item => item.id)];
+      return [...new Set(order)].filter(id => current.has(id)).map(id => current.get(id));
+    }
+    let hasConflict = false;
+    await runTransaction(firestore, async transaction => {
+      // Stable operation ID makes a lost acknowledgement safe to retry.
+      const history = await transaction.get(historyRef);
+      if (history.exists()) return;
+      const existing = await transaction.get(entityRef);
+      const remote = existing.exists() ? cleanRemote(existing.data()) : null;
+      const changed = operation.before && remote
+        ? Object.fromEntries(Object.entries(operation.data).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(operation.before[key])))
+        : operation.data;
+      const conflicts = operation.before && remote ? Object.keys(changed).filter(key => key !== "updatedAtMs" &&
+        JSON.stringify(remote[key]) !== JSON.stringify(operation.before[key]) && JSON.stringify(remote[key]) !== JSON.stringify(operation.data[key])) : [];
+      hasConflict = conflicts.length > 0;
+      if (operation.type === "month" && changed.budgets && operation.before && remote) {
+        changed.budgets = mergeBudgetRows(operation.before.budgets || [], operation.data.budgets, remote.budgets || []);
+      }
+      const after = { ...(remote || {}), ...changed };
+      transaction.set(entityRef, { ...after, serverUpdatedAt: serverTimestamp(), updatedBy: authUser?.uid || "" });
+      transaction.set(historyRef, {
+        action: operation.action, entityType: operation.type, entityId: operation.id,
+        before: remote, localBefore: operation.before || null, after,
+        requested: operation.data, conflicts, createdAtMs: operation.queuedAt,
+        createdAt: serverTimestamp(), updatedBy: authUser?.uid || "",
+      });
     });
-    await batch.commit();
-    setDataStatus("Firestoreに保存済み");
+    setDataStatus(hasConflict ? "別端末との変更を調整しました。変更前後の内容は履歴で確認できます" : "Firestoreに保存済み");
   }
 
+  let flushingPending = false;
   async function flushPending() {
-    const pending = loadJson(KEY_PENDING, []);
-    if (!pending.length || !remoteReady) return;
-    const failed = [];
-    for (const operation of pending) {
-      try {
-        await writeOperation(operation);
-      } catch {
-        failed.push(operation);
+    if (flushingPending || !remoteReady) return;
+    flushingPending = true;
+    try {
+      while (remoteReady) {
+        const operation = loadJson(KEY_PENDING, [])[0];
+        if (!operation) break;
+        try { await writeOperation(operation); }
+        catch { setDataStatus("端末に保存済み・再接続または再認証後に再送します"); break; }
+        // Read the latest queue: edits added during await must survive acknowledgement.
+        const remaining = loadJson(KEY_PENDING, []).filter(item => item.operationId !== operation.operationId);
+        localStorage.setItem(KEY_PENDING, JSON.stringify(remaining));
       }
-    }
-    localStorage.setItem(KEY_PENDING, JSON.stringify(failed));
+    } finally { flushingPending = false; }
   }
 
   function syncMonth(monthKey, action = "month-update", before = null) {
@@ -456,13 +483,9 @@
     queueOperation("recurring", item.id, item, action, before);
   }
 
-  function scheduleEntitySave(key, callback, delay = 500) {
-    clearTimeout(saveTimers.get(key));
-    const timer = setTimeout(() => {
-      saveTimers.delete(key);
-      callback();
-    }, delay);
-    saveTimers.set(key, timer);
+  function scheduleEntitySave(key, callback) {
+    // Local operation is durable immediately; network drain already serializes writes.
+    callback();
   }
 
   function addExpense(input, action = "expense-create") {
@@ -641,10 +664,11 @@
       name.placeholder = "カテゴリ名";
       name.disabled = month.locked;
       name.addEventListener("input", () => {
+        const before = serializeMonth(month);
         budget.name = name.value;
         persistLocal("");
         updateTotals();
-        scheduleEntitySave(`month-${currentMonth}`, () => syncMonth(currentMonth, "budget-update"));
+        scheduleEntitySave(`month-${currentMonth}`, () => syncMonth(month.month, "budget-update", before));
       });
 
       const mark = document.createElement("span");
@@ -659,11 +683,12 @@
       amount.value = budget.amount;
       amount.disabled = month.locked;
       amount.addEventListener("input", () => {
+        const before = serializeMonth(month);
         budget.amount = num(amount.value);
         persistLocal("");
         updateTotals();
         renderCategoryChart();
-        scheduleEntitySave(`month-${currentMonth}`, () => syncMonth(currentMonth, "budget-update"));
+        scheduleEntitySave(`month-${currentMonth}`, () => syncMonth(month.month, "budget-update", before));
       });
 
       const up = iconButton("↑", "上へ", () => moveBudget(index, -1));
@@ -1156,6 +1181,11 @@
         const row = document.createElement("div");
         row.className = "dialog-list-row history-row";
         row.innerHTML = `<div><strong>${historyLabel(item.action)}</strong><span>${new Date(item.createdAtMs).toLocaleString("ja-JP")}</span></div><small>${escapeHtml(item.after?.category || item.entityId || "")}${item.after?.amount != null ? `・${yen(item.after.amount)}` : ""}</small>`;
+        const details = document.createElement("details"), label = document.createElement("summary"), content = document.createElement("pre");
+        label.textContent = item.conflicts?.length ? "競合した変更の前後を確認" : "変更の前後を確認";
+        content.textContent = JSON.stringify({変更前:item.before,変更後:item.after,この端末の入力:item.requested || item.after}, null, 2);
+        content.style.cssText = "white-space:pre-wrap;overflow-wrap:anywhere";
+        details.append(label, content); row.appendChild(details);
         wrap.appendChild(row);
       });
       if (!history.length) wrap.innerHTML = '<p class="empty-state">変更履歴はまだありません</p>';
@@ -1242,25 +1272,26 @@
 
   async function restoreBackup(snapshot) {
     if (!snapshot?.months) return;
-    if (!confirm("現在の状態を先にバックアップして、この時点へ復元します。続けますか？")) return;
-    await createBackup("before-restore");
-    const restored = normalizeState(clone(snapshot));
-    const restoredIds = new Set(Object.values(restored.months).flatMap((month) => month.expenses.map((item) => item.id)));
-    const now = Date.now();
-    allExpenses(true).forEach((expense) => {
-      if (!restoredIds.has(expense.id)) {
-        expense.deletedAt = now;
-        restored.months[expense.month] ||= monthTemplate(expense.month, seedBudgets());
-        restored.months[expense.month].expenses.push(clone(expense));
+    if (!confirm("復元前の状態を保存し、この時点へ復元します。新しい支出・月・定期支出は残します。クラウドへの反映は内容確認後に再開します。続けますか？")) return;
+    try {
+      await createBackup("before-restore");
+      const restored = normalizeState(clone(snapshot));
+      const ids = new Set(Object.values(restored.months).flatMap(month => month.expenses.map(item => item.id)));
+      for (const [key, month] of Object.entries(state.months)) {
+        if (!restored.months[key]) restored.months[key] = clone(month);
+        else for (const expense of month.expenses) if (!ids.has(expense.id)) restored.months[key].expenses.push(clone(expense));
       }
-    });
-    state = restored;
-    persistLocal("バックアップから復元しました");
-    render();
-    Object.keys(state.months).forEach((key) => syncMonth(key, "backup-restore"));
-    allExpenses(true).forEach((expense) => syncExpense(expense, "backup-restore"));
-    state.recurring.forEach((item) => syncRecurring(item, "backup-restore"));
-    document.getElementById("listDialog").close();
+      const recurringIds = new Set(restored.recurring.map(item => item.id));
+      restored.recurring.push(...state.recurring.filter(item => !recurringIds.has(item.id)).map(clone));
+      const keys = [KEY_DATA, KEY_BACKUPS, KEY_PENDING, KEY_RECENT];
+      const before = DataBackup.snapshot(localStorage, keys);
+      const entries = { ...before, [KEY_DATA]: JSON.stringify(restored) };
+      remoteReady = false;
+      unsubscribeRemote.forEach(unsubscribe => unsubscribe());
+      localStorage.setItem("baby-budget:backup:hold", "1");
+      DataBackup.transaction(localStorage, keys, entries, "baby-budget:backup");
+      location.reload();
+    } catch { flashSave("復元できませんでした。元データを保持し、復旧用の状態を保存しています。空き容量を確認してください。"); }
   }
 
   function exportCsv() {
@@ -1484,15 +1515,15 @@
   }
 
   async function firebaseAppApi() {
-    return import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");
+    return import("https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js");
   }
 
   async function firebaseAuthApi() {
-    return import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js");
+    return import("https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js");
   }
 
   async function firebaseFirestoreApi() {
-    return import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");
+    return import("https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js");
   }
 
   function expenseSignature(expense) {
@@ -1597,10 +1628,14 @@
       getDocs(collection(firestore, "spaces", SPACE_ID, "expenses")),
       getDocs(collection(firestore, "spaces", SPACE_ID, "recurring")),
     ]);
-    const pendingIds = new Set(loadJson(KEY_PENDING, []).map((item) => item.id));
+    const pending = loadJson(KEY_PENDING, []);
+    const pendingIds = new Set(pending.filter(item => item.type === "expense").map(item => item.id));
+    const pendingMonths = new Set(pending.filter(item => item.type === "month").map(item => item.id));
+    const pendingRecurring = new Set(pending.filter(item => item.type === "recurring").map(item => item.id));
     const remoteMonthIds = new Set(monthsSnapshot.docs.map((item) => item.id));
     const localMonthKeys = Object.keys(state.months);
     monthsSnapshot.docs.forEach((item) => {
+      if (pendingMonths.has(item.id)) return;
       const data = cleanRemote(item.data());
       const localExpenses = state.months[item.id]?.expenses || [];
       state.months[item.id] = {
@@ -1615,19 +1650,21 @@
     const recoveredLocalExpenses = [];
     Object.values(state.months).forEach((month) => {
       month.expenses = month.expenses.filter((item) => {
+        if (pendingIds.has(item.id)) return true;
         if (remoteIds.has(item.id)) return false;
         const keep = pendingIds.has(item.id) || canRecoverLocalOnly;
         if (keep) recoveredLocalExpenses.push(item);
         return keep;
       });
     });
-    remoteExpenses.forEach((expense) => upsertExpenseLocal(expense));
+    remoteExpenses.filter(expense => !pendingIds.has(expense.id)).forEach((expense) => upsertExpenseLocal(expense));
     const remoteRecurring = recurringSnapshot.docs.map((item, index) => ({ ...normalizeState({ months: {}, recurring: [cleanRemote(item.data())] }).recurring[0], id: item.id, createdAt: num(item.data().createdAt) || index + 1 }));
     const remoteRecurringIds = new Set(remoteRecurring.map((item) => item.id));
     const recoveredRecurring = canRecoverLocalOnly
       ? state.recurring.filter((item) => !remoteRecurringIds.has(item.id))
       : [];
-    state.recurring = [...remoteRecurring, ...recoveredRecurring];
+    const localPendingRecurring = state.recurring.filter(item => pendingRecurring.has(item.id));
+    state.recurring = [...remoteRecurring.filter(item => !pendingRecurring.has(item.id)), ...recoveredRecurring.filter(item => !pendingRecurring.has(item.id)), ...localPendingRecurring];
     persistLocal("");
     localMonthKeys
       .filter((key) => !remoteMonthIds.has(key) && (canRecoverLocalOnly || key === currentMonth))
@@ -1701,6 +1738,7 @@
 
   function subscribeRemoteCollections() {
     const { collection, onSnapshot } = fsApi;
+    const onSyncError = () => { remoteReady = false; setDataStatus("端末に保存済み・クラウド認証または接続を確認してください"); };
     unsubscribeRemote.forEach((unsubscribe) => unsubscribe());
     unsubscribeRemote = [
       onSnapshot(collection(firestore, "spaces", SPACE_ID, "months"), (snapshot) => {
@@ -1716,7 +1754,7 @@
         persistLocal("");
         render();
         remoteApplying = false;
-      }),
+      }, onSyncError),
       onSnapshot(collection(firestore, "spaces", SPACE_ID, "expenses"), (snapshot) => {
         if (!remoteReady) return;
         const pendingIds = new Set(loadJson(KEY_PENDING, []).filter((item) => item.type === "expense").map((item) => item.id));
@@ -1730,18 +1768,37 @@
         persistLocal("");
         render();
         remoteApplying = false;
-      }),
+      }, onSyncError),
       onSnapshot(collection(firestore, "spaces", SPACE_ID, "recurring"), (snapshot) => {
         if (!remoteReady) return;
         const pendingIds = new Set(loadJson(KEY_PENDING, []).filter((item) => item.type === "recurring").map((item) => item.id));
         const remoteItems = snapshot.docs.filter((item) => !pendingIds.has(item.id)).map((item) => ({ ...cleanRemote(item.data()), id: item.id }));
-        const pendingItems = state.recurring.filter((item) => pendingIds.has(item.id));
-        state.recurring = [...remoteItems, ...pendingItems];
+        const remoteIds = new Set(remoteItems.map(item => item.id));
+        const localItems = state.recurring.filter(item => pendingIds.has(item.id) || !remoteIds.has(item.id));
+        state.recurring = [...remoteItems, ...localItems];
         state = normalizeState(state);
         persistLocal("");
         renderRecurring();
-      }),
+      }, onSyncError),
     ];
+  }
+
+  async function googleSignInForSync() {
+    const button = document.getElementById("cloudSignInButton");
+    button.disabled = true;
+    try {
+      const { initializeApp, getApps, getApp } = await firebaseAppApi();
+      const { getAuth, GoogleAuthProvider, signInWithPopup } = await firebaseAuthApi();
+      const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
+      const provider = new GoogleAuthProvider();
+      // Existing anonymous account is never accepted as an authorization factor.
+      await signInWithPopup(getAuth(app), provider);
+      await initFirestoreSync();
+    } catch (error) {
+      setDataStatus("端末に保存中・Googleログインまたはクラウド承認に失敗");
+    } finally {
+      button.disabled = false;
+    }
   }
 
   async function initFirestoreSync() {
@@ -1752,19 +1809,25 @@
     setDataStatus("Firestoreへ接続中");
     try {
       const { initializeApp } = await firebaseAppApi();
-      const { getAuth, signInAnonymously } = await firebaseAuthApi();
+      const { getAuth } = await firebaseAuthApi();
+      const { getApps, getApp } = await firebaseAppApi();
       fsApi = await firebaseFirestoreApi();
-      const { getFirestore, doc, setDoc, updateDoc, arrayUnion, serverTimestamp } = fsApi;
-      const app = initializeApp(FIREBASE_CONFIG);
-      authUser = (await signInAnonymously(getAuth(app))).user;
+      const { getFirestore, doc } = fsApi;
+      const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
+      const auth = getAuth(app);
+      await auth.authStateReady();
+      authUser = auth.currentUser;
+      if (!authUser || authUser.isAnonymous) {
+        document.getElementById("cloudSignInButton").hidden = false;
+        setDataStatus("端末に保存中・クラウド同期には承認済みGoogleアカウントが必要");
+        return;
+      }
+      document.getElementById("cloudSignInButton").hidden = true;
       firestore = getFirestore(app);
       const spaceRef = doc(firestore, "spaces", SPACE_ID);
       spaceDocumentRef = spaceRef;
-      try {
-        await updateDoc(spaceRef, { memberUids: arrayUnion(authUser.uid), updatedAt: serverTimestamp() });
-      } catch {
-        await setDoc(spaceRef, { name: "Baby家計簿", memberUids: [authUser.uid], updatedAt: serverTimestamp() }, { merge: true });
-      }
+      // Client-side self-enrollment was removed. Firestore Rules must verify an
+      // existing, admin-created approvedBudgetUsers/<auth.uid> document.
       await migrateLegacyData(spaceRef);
       remoteReady = true;
       await flushPending();
@@ -1796,6 +1859,7 @@
   }
 
   function bindEvents() {
+    document.getElementById("cloudSignInButton").addEventListener("click", googleSignInForSync);
     document.getElementById("quickAddForm").addEventListener("submit", (event) => {
       event.preventDefault();
       const amount = document.getElementById("quickAmount");
@@ -1948,9 +2012,33 @@
     initFirestoreSync();
     checkAppUpdate();
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") importLegacyAdditions();
+      if (document.visibilityState === "visible") { if (remoteReady) flushPending(); else initFirestoreSync(); importLegacyAdditions(); }
     });
   }
 
+  window.addEventListener("online", () => { if (remoteReady) flushPending(); else initFirestoreSync(); });
   document.addEventListener("DOMContentLoaded", init);
+  DataBackup.mount({ app: "baby-budget", keys: [KEY_DATA, KEY_BACKUPS, KEY_PENDING, KEY_RECENT],
+    pause: () => { remoteReady = false; unsubscribeRemote.forEach(unsubscribe => unsubscribe()); unsubscribeRemote = []; },
+    persist: () => { persistLocal(""); return true; },
+    validate: entries => {
+      const restored = JSON.parse(entries[KEY_DATA]);
+      if (!restored || restored.schemaVersion !== 2 || !restored.months || !Array.isArray(restored.recurring)) throw Error("形式不一致");
+      const ids = new Set(); let count = 0;
+      for (const month of Object.values(restored.months)) {
+        if (!Array.isArray(month.expenses) || !Array.isArray(month.budgets)) throw Error("月の形式不一致");
+        for (const item of month.expenses) { if (!item.id || ids.has(item.id) || !Number.isFinite(item.amount)) throw Error("支出の形式不一致"); ids.add(item.id); count++; }
+      }
+      for (const key of [KEY_BACKUPS, KEY_PENDING, KEY_RECENT]) if (entries[key] !== null && !Array.isArray(JSON.parse(entries[key]))) throw Error("形式不一致");
+      return `月: ${Object.keys(restored.months).length}、支出（削除印含む）: ${count}、定期支出: ${restored.recurring.length}、同期待ち: ${JSON.parse(entries[KEY_PENDING] || "[]").length}`;
+    },
+    beforeResume: () => {
+      // User explicitly confirms publishing restored local state. Preserve stable entity IDs.
+      for (const [key, month] of Object.entries(state.months)) {
+        queueOperation("month", key, month, "confirmed-backup-restore");
+        for (const expense of month.expenses) queueOperation("expense", expense.id, expense, "confirmed-backup-restore");
+      }
+      for (const recurring of state.recurring) queueOperation("recurring", recurring.id, recurring, "confirmed-backup-restore");
+    }
+  });
 })();
